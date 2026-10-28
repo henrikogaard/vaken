@@ -8,9 +8,9 @@ enum PreviewRenderer {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         for dark in [false, true] {
             NSApp.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-            for state in ["off", "on", "setup", "error", "authorizing"] {
+            for state in ["off", "on", "indefinite", "setup", "error", "authorizing"] {
                 let model = AppModel(preview: true)
-                model.flag = state == "on"
+                model.flag = state == "on" || state == "indefinite"
                 model.power = PowerState(isAC: true, batteryPercent: 100)
                 model.ready = state != "setup"
                 model.helperProtocolVersion = 2
@@ -32,8 +32,6 @@ enum PreviewRenderer {
             }
             try capture(VakenSettings(model: model, updater: AppUpdater(previewConfigured: true), section: .about), width: 500,
                         to: root.appendingPathComponent("settings-updates-\(dark ? "dark" : "light").png"))
-            try capture(VakenSettings(model: model, timerExpanded: true), width: 500,
-                        to: root.appendingPathComponent("settings-timer-\(dark ? "dark" : "light").png"))
             try capture(SessionOptions(model: model, dismiss: {}), width: 355,
                         to: root.appendingPathComponent("session-options-\(dark ? "dark" : "light").png"))
             model.authenticationRequired = false
