@@ -56,6 +56,12 @@ elif name == 'xcrun':
         count = sum(entry == ['xcrun', 'notarytool'] for entry in log)
         status = os.environ.get('TEST_DMG_NOTARY_STATUS' if count == 2 else 'TEST_NOTARY_STATUS', 'Accepted')
         print(json.dumps({'status': status}))
+    elif args[0] == 'stapler':
+        log = [json.loads(line) for line in pathlib.Path(os.environ['TEST_LOG']).read_text().splitlines()]
+        count = sum(entry == ['xcrun', 'stapler'] for entry in log)
+        if count <= int(os.environ.get('TEST_STAPLER_FAILURES', '0')):
+            print('The network connection was lost.', file=sys.stderr)
+            sys.exit(68)
 elif name not in ['codesign', 'spctl']:
     sys.exit('Unexpected stub tool')
 '''
@@ -86,7 +92,7 @@ class CIReleaseTests(unittest.TestCase):
                        APPLE_NOTARY_KEY_ID="fake-id", APPLE_NOTARY_ISSUER_ID="fake-issuer",
                        SPARKLE_PRIVATE_KEY="fake-sparkle-key", VAKEN_PUBLIC_ED_KEY="fake-public-key",
                        VAKEN_FEED_URL="https://example.com/appcast.xml", VAKEN_BUILD_NUMBER="1",
-                       VAKEN_VERSION="0.1.0", VAKEN_DOWNLOAD_PREFIX="https://example.com/v0.1.0/", TEST_LOG=str(log))
+                       VAKEN_VERSION="0.1.0", VAKEN_DOWNLOAD_PREFIX="https://example.com/v0.1.0/", VAKEN_RETRY_DELAY="0", TEST_LOG=str(log))
             env.update(changes)
             result = subprocess.run(["/bin/bash", str(script)], env=env, capture_output=True, text=True)
             calls = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
@@ -119,6 +125,19 @@ class CIReleaseTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(assets, [])
         self.assertEqual(calls.count(["xcrun", "notarytool"]), 2)
+        self.assertIn(["security", "delete-keychain"], calls)
+
+    def test_transient_stapler_failure_is_retried(self):
+        result, calls, assets = self.run_fixture(TEST_STAPLER_FAILURES="1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(calls.count(["xcrun", "stapler"]), 5)
+        self.assertIn("Vaken.dmg", assets)
+
+    def test_permanent_stapler_failure_fails_with_original_status(self):
+        result, calls, assets = self.run_fixture(TEST_STAPLER_FAILURES="99")
+        self.assertEqual(result.returncode, 68)
+        self.assertEqual(calls.count(["xcrun", "stapler"]), 3)
+        self.assertEqual(assets, [])
         self.assertIn(["security", "delete-keychain"], calls)
 
     def test_local_execution_is_refused_before_keychain_access(self):
