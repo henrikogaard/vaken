@@ -92,23 +92,22 @@ struct VakenPopover: View {
                     .accessibilityIdentifier("keep-awake")
             }
 
-            if awake, let remaining = model.remaining {
+            if awake {
                 HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(remaining).font(.system(size: 22, weight: .semibold).monospacedDigit())
-                            .accessibilityLabel("Time remaining \(remaining)")
-                        if let session = model.sessionText {
-                            Text(session).font(.system(size: 11)).foregroundStyle(.secondary)
+                        if let remaining = model.remaining {
+                            Text(remaining).font(.system(size: 22, weight: .semibold).monospacedDigit())
+                                .accessibilityLabel("Time remaining \(remaining)")
                         }
+                        Text(model.sessionText ?? "No time limit").font(.system(size: 11)).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
                     Button("+15 min", action: model.extendSession)
-                    Button("End") { model.setAwake(false) }
+                    Button("End session") { model.setAwake(false) }
                 }
                 .controlSize(.small)
                 .disabled(model.busy != nil || !model.ready)
-            } else if awake, let session = model.sessionText {
-                Text(session).font(.system(size: 11)).foregroundStyle(.secondary)
             }
 
             Divider()

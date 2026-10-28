@@ -8,9 +8,9 @@ enum PreviewRenderer {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         for dark in [false, true] {
             NSApp.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-            for state in ["off", "on", "setup", "error", "authorizing"] {
+            for state in ["off", "on", "indefinite", "setup", "error", "authorizing"] {
                 let model = AppModel(preview: true)
-                model.flag = state == "on"
+                model.flag = state == "on" || state == "indefinite"
                 model.power = PowerState(isAC: true, batteryPercent: 100)
                 model.ready = state != "setup"
                 model.helperProtocolVersion = 2
