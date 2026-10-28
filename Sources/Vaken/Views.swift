@@ -56,14 +56,17 @@ struct VakenPopover: View {
 
             Divider()
             HStack(spacing: 14) {
-                Button(action: settings) { Label("Settings…", systemImage: "gearshape") }
+                Button(action: settings) { Label("Settings…", systemImage: "gearshape").fixedSize() }
                     .keyboardShortcut(",").accessibilityIdentifier("open-settings")
                 if updater.configured {
-                    Button("Check for Updates…", action: updater.check).disabled(!updater.canCheck)
+                    Button(action: updater.check) { Label("Updates…", systemImage: "arrow.down.circle").fixedSize() }
+                        .disabled(!updater.canCheck)
+                        .accessibilityLabel("Check for Updates")
                 }
-                Spacer()
-                Button("Quit Vaken", action: model.quit).keyboardShortcut("q")
+                Spacer(minLength: 8)
+                Button { model.quit() } label: { Text("Quit Vaken").fixedSize() }.keyboardShortcut("q")
             }
+            .fixedSize(horizontal: false, vertical: true)
             .buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(.secondary)
         }
         .padding(16).frame(width: 320)
@@ -141,8 +144,16 @@ struct VakenPopover: View {
 
     private var timers: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(awake ? "Change timer" : "Start a timer")
-                .font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+            HStack {
+                Text(awake ? "Change timer" : "Start a timer")
+                    .font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+                Spacer()
+                if awake && model.deadline != nil {
+                    Button("Remove time limit", action: model.removeDeadline)
+                        .buttonStyle(.link).font(.system(size: 11))
+                        .disabled(!canStart)
+                }
+            }
             HStack(spacing: 6) {
                 ForEach([15, 30, 60, 120], id: \.self) { minutes in
                     Button { model.startMinutes(minutes) } label: {
@@ -484,7 +495,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.target = self
         statusItem.button?.action = #selector(togglePopover)
         popover.behavior = .transient
-        popover.contentViewController = NSHostingController(rootView: VakenPopover(model: model, updater: updater, settings: showSettings))
+        let popoverHost = NSHostingController(rootView: VakenPopover(model: model, updater: updater, settings: showSettings))
+        // Size the popover before it shows; growing afterwards pushes it up over the menu bar.
+        popoverHost.sizingOptions = [.preferredContentSize]
+        popover.contentViewController = popoverHost
         model.onChange = { [weak self] in self?.updateIcon() }
         model.onQuit = { [weak self] in
             DispatchQueue.main.async {

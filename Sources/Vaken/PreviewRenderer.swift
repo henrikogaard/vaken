@@ -17,7 +17,7 @@ enum PreviewRenderer {
                 if state == "on" { model.deadline = Date().addingTimeInterval(1795) }
                 if state == "authorizing" { model.busy = "Waiting for Touch ID or password…" }
                 if state == "error" { model.error = "Automatic restore failed. Open Settings to check its permission." }
-                try capture(VakenPopover(model: model, settings: {}), width: 320,
+                try capture(VakenPopover(model: model, updater: AppUpdater(previewConfigured: true), settings: {}), width: 320,
                             to: root.appendingPathComponent("popover-\(state)-\(dark ? "dark" : "light").png"))
             }
             let model = AppModel(preview: true)

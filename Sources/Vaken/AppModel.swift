@@ -219,6 +219,10 @@ final class AppModel: ObservableObject {
         guard var config = configuration else { startMinutes(15); return }
         config.extend(now: Date()); startSession(config)
     }
+    func removeDeadline() {
+        guard var config = configuration, config.deadline != nil else { return }
+        config.deadline = nil; startSession(config)
+    }
     private func startSession(_ config: SessionConfiguration, relativeDuration: TimeInterval? = nil) {
         guard !preview, busy == nil else { return }
         guard !updateInProgress else { error = "Finish or dismiss the update before starting Keep awake."; return }

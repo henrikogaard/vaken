@@ -85,6 +85,14 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(m.deadline!.timeIntervalSince(first), 900, accuracy: 1)
         m.startMinutes(30); XCTAssertEqual(a.calls, 1)
     }
+    func testRemoveDeadlineReturnsToNoLimitWithoutReauth() {
+        let s = Service(), a = Auth()
+        let m = model(s, a); m.setAwake(true); m.extendSession()
+        XCTAssertNotNil(m.deadline)
+        m.removeDeadline()
+        XCTAssertNil(m.deadline); XCTAssertNil(s.config?.deadline)
+        XCTAssertEqual(a.calls, 1); XCTAssertEqual(s.begins, 1); XCTAssertEqual(s.updates, 2)
+    }
     func testQuitFailureKeepsAppAlive() {
         let s = Service(), a = Auth(); s.failRestore = true
         let m = model(s, a); m.setAwake(true)
