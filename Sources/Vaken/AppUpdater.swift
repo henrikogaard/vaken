@@ -16,7 +16,7 @@ final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
         super.init()
         if previewConfigured {
             configured = true; canCheck = true; automaticChecks = true
-            status = "Updates are checked with Sparkle. Installation requires normal sleep."
+            status = "Updates are checked with Sparkle. Keep awake pauses during installation and comes back after."
         }
     }
 
@@ -36,7 +36,7 @@ final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
             },
         ]
         configured = true
-        status = "Updates are checked with Sparkle. Installation requires normal sleep."
+        status = "Updates are checked with Sparkle. Keep awake pauses during installation and comes back after."
         controller.startUpdater()
     }
 
@@ -47,7 +47,7 @@ final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
 
     func updater(_ updater: SPUUpdater, shouldProceedWithUpdate updateItem: SUAppcastItem, updateCheck: SPUUpdateCheck) throws {
         guard model?.beginUpdateInteraction() == true else {
-            let message = "End the Keep awake session and wait for pending actions to finish, then check for updates again."
+            let message = "Wait for Vaken to finish what it is doing, then check for updates again."
             status = message
             throw NSError(domain: "no.ogard.vaken.updates", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
         }
@@ -63,7 +63,7 @@ final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
     // Resumed downloads can skip shouldProceedWithUpdate. Recheck at installation too.
     func updaterShouldRelaunchApplication(_ updater: SPUUpdater) -> Bool {
         guard model?.beginUpdateInteraction() == true else {
-            status = "End Keep awake before installing the update."
+            status = "Wait for Vaken to finish what it is doing, then install the update."
             return false
         }
         return true

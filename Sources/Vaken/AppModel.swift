@@ -344,8 +344,10 @@ final class AppModel: ObservableObject {
         }
         quitRequested = true; stop(interactive: true)
     }
+    /// An active session may stay on during an update: installing quits through the verified
+    /// restore path, which keeps the resume note, so the relaunched app turns it back on.
     func beginUpdateInteraction() -> Bool {
-        guard flag == false, busy == nil, sessionID == nil, !quitRequested else { return false }
+        guard flag != nil, busy == nil, !quitRequested else { return false }
         updateInProgress = true; paused = true; changed()
         return true
     }
