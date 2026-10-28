@@ -307,6 +307,12 @@ public enum SessionLength: String, CaseIterable {
 
 // MARK: - Settings (FR-14)
 
+/// An app-side note that Keep awake was on, so the next launch can start it again.
+public struct ResumeSession: Codable, Equatable {
+    public var deadline: Date?
+    public init(deadline: Date?) { self.deadline = deadline }
+}
+
 public struct AppSettings: Codable, Equatable {
     public var mode: Mode = .manualPlusSafetyNet
     public var batteryFloor: Int = 15
@@ -315,10 +321,11 @@ public struct AppSettings: Codable, Equatable {
     public var authentication: AuthenticationMethod = .touchID
     public var displayAwake: Bool = false
     public var shortcut: KeyboardShortcut?
+    public var resumeSession: ResumeSession?
 
     public init() {}
 
-    private enum CodingKeys: String, CodingKey { case mode, batteryFloor, launchAtLogin, notify, authentication, displayAwake, shortcut }
+    private enum CodingKeys: String, CodingKey { case mode, batteryFloor, launchAtLogin, notify, authentication, displayAwake, shortcut, resumeSession }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         mode = try values.decodeIfPresent(Mode.self, forKey: .mode) ?? .manualPlusSafetyNet
@@ -328,6 +335,7 @@ public struct AppSettings: Codable, Equatable {
         authentication = try values.decodeIfPresent(AuthenticationMethod.self, forKey: .authentication) ?? .touchID
         displayAwake = try values.decodeIfPresent(Bool.self, forKey: .displayAwake) ?? false
         shortcut = try values.decodeIfPresent(KeyboardShortcut.self, forKey: .shortcut)
+        resumeSession = try? values.decodeIfPresent(ResumeSession.self, forKey: .resumeSession)
     }
 
     public init(mode: Mode, batteryFloor: Int, launchAtLogin: Bool, notify: Bool) {

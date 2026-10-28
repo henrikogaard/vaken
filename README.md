@@ -43,7 +43,7 @@ Setup uses a signed system helper. No Terminal step or global sudo/PAM changes a
 
 Click the menu-bar icon and turn **Keep awake** On. Authenticate with Touch ID or password when asked. The outline sun means system sleep is disabled; the crescent moon means normal sleep is allowed. Your screen can still sleep and lock as usual.
 
-The main switch starts an indefinite session. Turn it Off or choose **End session** to cancel the session and restore normal sleep. Quitting Vaken also restores normal sleep; if restoration fails, Vaken stays open and shows an error.
+The main switch starts an indefinite session. Turn it Off or choose **End session** to cancel the session and restore normal sleep. Quitting Vaken also restores normal sleep; if restoration fails, Vaken stays open and shows an error. If Keep awake was on when Vaken quit or the Mac restarted, Vaken turns it on again the next time it opens, keeping any remaining time limit. Turn on **Launch at login** for this to work after a restart. It asks for Touch ID or password first when that is required. Sessions that end with an app, sessions whose time ran out and Follow power source mode are not resumed. Until Vaken opens again, normal sleep applies.
 
 ### Choose a mode
 
