@@ -249,7 +249,10 @@ final class AppModel: ObservableObject {
     }
     private func startSession(_ config: SessionConfiguration, relativeDuration: TimeInterval? = nil) {
         guard !preview, busy == nil else { return }
-        guard !updateInProgress else { error = "Finish or dismiss the update before starting Keep awake."; return }
+        // An update blocks new sessions; changes to the running session still reach the helper.
+        guard !updateInProgress || (flag == true && sessionID != nil) else {
+            error = "Finish or dismiss the update before starting Keep awake."; return
+        }
         guard ready else { error = "Enable the Vaken helper in Settings first."; return }
         guard let flag else { error = "Wait for system sleep state."; return }
         if let reason = config.validate(now: Date()) { error = reason; return }

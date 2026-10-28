@@ -46,6 +46,17 @@ final class UpdateTests: XCTestCase {
         XCTAssertEqual(m.settings.resumeSession, ResumeSession(deadline: nil))
     }
 
+    func testPolicyChangesReachActiveSessionDuringUpdate() {
+        let s = AppModelTests.Service(), a = AppModelTests.Auth()
+        let m = AppModel(isolated: true, service: s, authentication: a)
+        m.ready = true; m.flag = false; m.power = .init(isAC: true, batteryPercent: 100)
+        m.settings.mode = .manual; m.setAwake(true)
+        XCTAssertTrue(m.beginUpdateInteraction())
+        m.changeMode(.manualPlusSafetyNet); m.changeFloor(30)
+        XCTAssertEqual(s.config?.mode, .manualPlusSafetyNet); XCTAssertEqual(s.config?.batteryFloor, 30)
+        XCTAssertEqual(s.begins, 1); XCTAssertEqual(a.calls, 1)
+    }
+
     func testAcceptedUpdateBlocksNewSessionsAndFollowUntilCycleEnds() {
         let s = AppModelTests.Service(), a = AppModelTests.Auth()
         let m = AppModel(isolated: true, service: s, authentication: a)
