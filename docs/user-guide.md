@@ -39,9 +39,9 @@ A disabled requirement switch usually means the helper is missing or older than 
 
 ## Updates
 
-In a release-configured build, **Settings → About** offers **Check for Updates…** and **Automatically check for updates**. Sparkle owns the schedule and preference. By default it asks for automatic-check permission on the second launch and checks roughly daily once enabled.
+In a release-configured build, the arrow icon in the menu and **Settings → About** offer **Check for Updates…** and **Automatically check for updates**. Sparkle owns the schedule and preference. By default it asks for automatic-check permission on the second launch and checks roughly daily once enabled.
 
-Automatic installation is disabled. End Keep awake and let pending actions finish before installing. An offered update temporarily blocks new sessions until it is finished or dismissed. Quitting for an update still requires verified normal sleep. After relaunch, helper compatibility is checked separately; macOS may require another helper approval.
+Automatic installation is disabled. Let pending actions finish before installing. Keep awake may stay on: installing quits Vaken through the normal restore, and the relaunched app resumes the session. An offered update temporarily blocks new sessions until it is finished or dismissed. Quitting for an update still requires verified normal sleep. After relaunch, helper compatibility is checked separately; macOS may require another helper approval.
 
 **Updates are not configured** means this local build has no production feed/key pair. It is not an indication that the installed version is current. Replacing such a build manually requires a trusted signed copy. Current pre-release builds have no published feed.
 

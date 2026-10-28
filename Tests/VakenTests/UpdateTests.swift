@@ -30,15 +30,31 @@ final class UpdateTests: XCTestCase {
         XCTAssertThrowsError(try UpdateConfiguration(info: ["SUFeedURL": "https://example.com/feed"]))
     }
 
-    func testUpdateCannotInterruptAwakeOrPendingAuthentication() {
+    func testUpdateWaitsForPendingAuthenticationAndResumesAwakeAfterInstall() {
         let s = AppModelTests.Service(), a = AppModelTests.Auth()
         let m = AppModel(isolated: true, service: s, authentication: a)
         m.ready = true; m.flag = false; m.power = .init(isAC: true, batteryPercent: 100)
         a.result = nil; m.setAwake(true)
         XCTAssertFalse(m.beginUpdateInteraction())
         a.pending?(.success)
-        XCTAssertFalse(m.beginUpdateInteraction())
+        XCTAssertTrue(m.beginUpdateInteraction())
         XCTAssertTrue(s.awake); XCTAssertEqual(s.restores, 0)
+        // Installing quits the app: sleep is restored, and the next launch resumes the session.
+        var quit = false
+        m.onQuit = { quit = true }; m.quit()
+        XCTAssertTrue(quit); XCTAssertFalse(s.awake)
+        XCTAssertEqual(m.settings.resumeSession, ResumeSession(deadline: nil))
+    }
+
+    func testPolicyChangesReachActiveSessionDuringUpdate() {
+        let s = AppModelTests.Service(), a = AppModelTests.Auth()
+        let m = AppModel(isolated: true, service: s, authentication: a)
+        m.ready = true; m.flag = false; m.power = .init(isAC: true, batteryPercent: 100)
+        m.settings.mode = .manual; m.setAwake(true)
+        XCTAssertTrue(m.beginUpdateInteraction())
+        m.changeMode(.manualPlusSafetyNet); m.changeFloor(30)
+        XCTAssertEqual(s.config?.mode, .manualPlusSafetyNet); XCTAssertEqual(s.config?.batteryFloor, 30)
+        XCTAssertEqual(s.begins, 1); XCTAssertEqual(a.calls, 1)
     }
 
     func testAcceptedUpdateBlocksNewSessionsAndFollowUntilCycleEnds() {

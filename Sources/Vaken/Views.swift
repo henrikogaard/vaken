@@ -56,12 +56,13 @@ struct VakenPopover: View {
 
             Divider()
             HStack(spacing: 14) {
-                Button(action: settings) { Label("Settings…", systemImage: "gearshape").fixedSize() }
+                Button(action: settings) { Image(systemName: "gearshape").font(.system(size: 14)) }
                     .keyboardShortcut(",").accessibilityIdentifier("open-settings")
+                    .help("Settings…").accessibilityLabel("Settings")
                 if updater.configured {
-                    Button(action: updater.check) { Label("Updates…", systemImage: "arrow.down.circle").fixedSize() }
+                    Button(action: updater.check) { Image(systemName: "arrow.down.circle").font(.system(size: 14)) }
                         .disabled(!updater.canCheck)
-                        .accessibilityLabel("Check for Updates")
+                        .help("Check for Updates…").accessibilityLabel("Check for Updates")
                 }
                 Spacer(minLength: 8)
                 Button { model.quit() } label: { Text("Quit Vaken").fixedSize() }.keyboardShortcut("q")

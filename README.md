@@ -86,7 +86,7 @@ Open **Settings → About → Check for Updates…**, or use the dropdown's manu
 
 <img src="docs/images/updates.png" alt="About view with Check for Updates and the automatic-check preference" width="500">
 
-End Keep awake before installing an update. Vaken does not restart unattended, and an update offer temporarily blocks new sessions until it is finished or dismissed. Local development builds without a feed/key show **Updates are not configured** and make no updater requests.
+You can install an update while Keep awake is on. Vaken restores normal sleep while it quits to install, then turns Keep awake back on when it reopens (asking for Touch ID or password if that is required). Vaken does not restart unattended, and an update offer temporarily blocks new sessions until it is finished or dismissed. Local development builds without a feed/key show **Updates are not configured** and make no updater requests.
 
 Screenshots show Vaken 0.1.0 native views with demonstration session data. The Settings screenshot is cropped to the mode and authentication controls. See the [full user guide](docs/user-guide.md) for troubleshooting and removal.
 

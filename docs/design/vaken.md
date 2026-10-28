@@ -10,7 +10,7 @@ Vaken keeps a Mac available for remote access and long-running work by controlli
 
 The system targets macOS 13 or later. It does not unlock the screen, simulate activity, change thermal protections or implement a general automation engine. An optional display assertion is session-scoped. Network availability and protection from every OS or hardware failure are outside its guarantees.
 
-The current distribution is version 0.3.0. The code is MIT licensed. Public release hosting, signing-key provisioning and notarized old-to-new update validation are separate deployment gates, not consequences of a successful local build.
+The current distribution is version 0.3.1. The code is MIT licensed. Public release hosting, signing-key provisioning and notarized old-to-new update validation are separate deployment gates, not consequences of a successful local build.
 
 ## 2. Requirements
 
@@ -141,7 +141,7 @@ About exposes manual checks and automatic-check consent. Configured dropdowns al
 ### Update state transitions
 
 1. Checking or a network error does not alter the awake session.
-2. Before accepting an update offer, the controller requires observed normal sleep, no session owner and no pending operation or quit.
+2. Before accepting an update offer, the controller requires a known sleep state and no pending operation or quit. An active session may continue; installation quits through the verified restore path, which keeps the app's resume note, and the relaunched app resumes the session.
 3. Accepting an offer holds an interaction lock and pauses Follow. Starting a new session is blocked until the update is finished or dismissed.
 4. Resumed downloads can bypass the initial offer callback, so installation/relaunch checks the session guard again.
 5. Actual termination still verifies restoration. A failed restore cancels termination.
