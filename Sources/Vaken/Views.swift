@@ -5,24 +5,18 @@ import VakenCore
 
 private let warmAccent = Color(red: 0.78, green: 0.46, blue: 0.12)
 
-private struct VersionBadge: View {
-    var body: some View {
-        Text(AppInfo.version)
-            .font(.system(size: 10, weight: .medium, design: .monospaced))
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 7).padding(.vertical, 4)
-            .background(Color.primary.opacity(0.055), in: Capsule())
-            .accessibilityLabel("Version \(AppInfo.version)")
-    }
-}
-
 private struct InlineError: View {
     let message: String
+    var action: (title: String, perform: () -> Void)?
     var body: some View {
-        Label(message, systemImage: "exclamationmark.circle")
-            .font(.system(size: 11)).foregroundStyle(.orange)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Label(message, systemImage: "exclamationmark.circle")
+                .font(.system(size: 11)).foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+            if let action { Button(action.title, action: action.perform).controlSize(.small) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -32,131 +26,156 @@ struct VakenPopover: View {
     var settings: () -> Void
     @State private var more = false
 
+    private var awake: Bool { model.flag == true }
+    private var canStart: Bool { model.ready && model.busy == nil && !model.updateInProgress }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
-                Image(nsImage: VakenArtwork.appIcon(size: 26))
-                    .resizable().frame(width: 26, height: 26).accessibilityHidden(true)
-                Text("Vaken").font(.system(size: 15, weight: .semibold))
-                Spacer()
-                VersionBadge()
+                Image(nsImage: VakenArtwork.appIcon(size: 22))
+                    .resizable().frame(width: 22, height: 22).accessibilityHidden(true)
+                Text("Vaken").font(.system(size: 14, weight: .semibold))
             }
 
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 10) {
-                    Image(nsImage: VakenArtwork.menuIcon(active: model.flag == true, error: model.flag == nil))
-                        .renderingMode(.template).resizable().scaledToFit()
-                        .frame(width: 28, height: 28)
-                        .foregroundStyle(model.flag == true ? warmAccent : .secondary)
-                        .accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Keep awake").font(.system(size: 14, weight: .semibold))
-                        if model.busy != nil {
-                            Text(model.status).font(.system(size: 11)).foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        } else {
-                            Text(model.flag == nil ? "Reading sleep state…" : (model.flag == true ? "Your Mac stays awake" : "Normal sleep allowed"))
-                                .font(.system(size: 11)).foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer(minLength: 2)
-                    Toggle("Keep awake", isOn: Binding(get: { model.flag == true }, set: { model.setAwake($0) }))
-                        .labelsHidden().toggleStyle(.switch)
-                        .disabled(model.busy != nil || model.flag == nil || model.updateInProgress)
-                        .accessibilityIdentifier("keep-awake")
-                }
-                Divider()
-                HStack(spacing: 5) {
-                    Image(systemName: model.power.isAC == true ? "powerplug" : "battery.75percent")
-                    Text(model.powerText)
-                    Spacer(minLength: 0)
-                }.font(.system(size: 11)).foregroundStyle(.secondary)
-            }
-            .padding(14)
-            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.055)))
+            statusCard
 
-            VStack(alignment: .leading, spacing: 7) {
-                HStack {
-                    Text("Mode").foregroundStyle(.secondary)
-                    Spacer()
-                    Picker("Mode", selection: Binding(get: { model.settings.mode }, set: model.changeMode)) {
-                        ForEach(Mode.allCases, id: \.self) { Text($0.label).tag($0) }
-                    }
-                    .labelsHidden().pickerStyle(.menu).frame(width: 205)
-                    .disabled(model.busy != nil)
-                    .accessibilityIdentifier("dropdown-mode")
-                }
-                Text(model.policyText).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }.font(.system(size: 11))
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Timer").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
-                    Spacer()
-                    if let remaining = model.remaining {
-                        Text(remaining).font(.system(size: 12, weight: .medium, design: .monospaced))
-                            .accessibilityLabel("Time remaining \(remaining)")
-                    }
-                }
-                HStack(spacing: 5) {
-                    ForEach([15, 30, 60, 120], id: \.self) { minutes in
-                        Button(minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h") { model.startMinutes(minutes) }
-                            .frame(maxWidth: .infinity)
-                            .disabled(!model.ready || model.busy != nil || model.updateInProgress)
-                    }
-                    Button("More…") { more = true }.popover(isPresented: $more) {
-                        SessionOptions(model: model, dismiss: { more = false })
-                    }
-                }.controlSize(.small)
-                if model.flag == true {
-                    HStack {
-                        Button("+15 min", action: model.extendSession)
-                        Spacer()
-                        Button("End session") { model.setAwake(false) }
-                    }.buttonStyle(.plain).font(.system(size: 11))
-                        .disabled(model.busy != nil || !model.ready)
-                }
+            if model.ready {
+                modePicker
+                timers
+            } else {
+                setup
             }
 
-            if let error = model.error { InlineError(message: error) }
+            if let error = model.error {
+                InlineError(message: error, action: error.contains("Settings") ? ("Open Settings", settings) : nil)
+            }
             if model.updateInProgress {
                 Text("Finish or dismiss the update before starting Keep awake.")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
             }
 
-            if !model.ready {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(model.setupStatus.isEmpty ? "The Vaken helper needs one-time approval." : model.setupStatus)
-                        .font(.system(size: 11)).foregroundStyle(.secondary)
-                    Button(action: model.configureRestore) {
-                        HStack(spacing: 6) {
-                            if model.checkingSetup { ProgressView().controlSize(.mini) }
-                            Text("Set up helper…")
-                        }
-                    }
-                    .disabled(model.busy != nil || model.checkingSetup)
-                    .accessibilityIdentifier("setup-restore")
-                }
-            }
-
             Divider()
-            if updater.configured {
-                Button("Check for Updates…", action: updater.check)
-                    .disabled(!updater.canCheck)
-                    .font(.system(size: 11)).buttonStyle(.plain)
-            }
-            HStack {
+            HStack(spacing: 14) {
                 Button(action: settings) { Label("Settings…", systemImage: "gearshape") }
                     .keyboardShortcut(",").accessibilityIdentifier("open-settings")
+                if updater.configured {
+                    Button("Check for Updates…", action: updater.check).disabled(!updater.canCheck)
+                }
                 Spacer()
-                Button("Quit", action: model.quit).keyboardShortcut("q")
+                Button("Quit Vaken", action: model.quit).keyboardShortcut("q")
             }
             .buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(.secondary)
         }
         .padding(16).frame(width: 320)
         .background(Color(nsColor: .windowBackgroundColor))
+        .animation(.easeOut(duration: 0.2), value: awake)
+    }
+
+    private var statusCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(nsImage: VakenArtwork.menuIcon(active: awake, error: model.flag == nil))
+                    .renderingMode(.template).resizable().scaledToFit()
+                    .frame(width: 28, height: 28)
+                    .foregroundStyle(awake ? warmAccent : .secondary)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Keep awake").font(.system(size: 14, weight: .semibold))
+                    Text(model.busy != nil ? model.status : (model.flag == nil ? "Reading sleep state…" : (awake ? "Your Mac stays awake" : "Normal sleep allowed")))
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 2)
+                Toggle("Keep awake", isOn: Binding(get: { awake }, set: { model.setAwake($0) }))
+                    .labelsHidden().toggleStyle(.switch).tint(warmAccent)
+                    .disabled(!model.ready || model.busy != nil || model.flag == nil || model.updateInProgress)
+                    .accessibilityIdentifier("keep-awake")
+            }
+
+            if awake, let remaining = model.remaining {
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(remaining).font(.system(size: 22, weight: .semibold).monospacedDigit())
+                            .accessibilityLabel("Time remaining \(remaining)")
+                        if let session = model.sessionText {
+                            Text(session).font(.system(size: 11)).foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    Button("+15 min", action: model.extendSession)
+                    Button("End") { model.setAwake(false) }
+                }
+                .controlSize(.small)
+                .disabled(model.busy != nil || !model.ready)
+            } else if awake, let session = model.sessionText {
+                Text(session).font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+
+            Divider()
+            HStack(spacing: 5) {
+                Image(systemName: model.power.isAC == true ? "powerplug" : "battery.75percent")
+                Text(model.powerText)
+                Spacer(minLength: 0)
+            }.font(.system(size: 11)).foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .background(awake ? warmAccent.opacity(0.1) : Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(awake ? warmAccent.opacity(0.35) : Color.primary.opacity(0.055)))
+    }
+
+    private var modePicker: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack {
+                Text("Mode").foregroundStyle(.secondary)
+                Spacer()
+                Picker("Mode", selection: Binding(get: { model.settings.mode }, set: model.changeMode)) {
+                    ForEach(Mode.allCases, id: \.self) { Text($0.label).tag($0) }
+                }
+                .labelsHidden().pickerStyle(.menu).frame(width: 205)
+                .disabled(model.busy != nil)
+                .accessibilityIdentifier("dropdown-mode")
+            }
+            Text(model.policyText).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }.font(.system(size: 11))
+    }
+
+    private var timers: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(awake ? "Change timer" : "Start a timer")
+                .font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                ForEach([15, 30, 60, 120], id: \.self) { minutes in
+                    Button { model.startMinutes(minutes) } label: {
+                        Text(minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h").frame(maxWidth: .infinity)
+                    }
+                    .disabled(!canStart)
+                }
+                Button { more = true } label: { Text("More…").frame(maxWidth: .infinity) }
+                    .popover(isPresented: $more) {
+                        SessionOptions(model: model, dismiss: { more = false })
+                    }
+            }.controlSize(.small)
+        }
+    }
+
+    private var setup: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("One-time setup", systemImage: "lock.shield")
+                .font(.system(size: 12, weight: .semibold))
+            Text(model.setupStatus.isEmpty ? "Vaken needs a small helper to manage sleep. macOS asks you to approve it once." : model.setupStatus)
+                .font(.system(size: 11)).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button(action: model.configureRestore) {
+                HStack(spacing: 6) {
+                    if model.checkingSetup { ProgressView().controlSize(.mini) }
+                    Text("Set up helper…")
+                }.frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent).tint(warmAccent).controlSize(.large)
+            .disabled(model.busy != nil || model.checkingSetup)
+            .accessibilityIdentifier("setup-restore")
+        }
     }
 }
 
@@ -498,7 +517,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func togglePopover() {
         guard let button = statusItem.button else { return }
         if popover.isShown { popover.performClose(nil) }
-        else { popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY) }
+        else {
+            // A transient popover only closes on outside clicks while the app is active.
+            NSApp.activate(ignoringOtherApps: true)
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            popover.contentViewController?.view.window?.makeKey()
+        }
     }
 
     private func showSettings() {

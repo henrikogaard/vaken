@@ -64,10 +64,13 @@ final class AppModel: ObservableObject {
         let seconds = max(0, Int(ceil(deadline.timeIntervalSince(clock))))
         return seconds >= 3600 ? String(format: "%d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60) : String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
+    var sessionText: String? {
+        let end = deadline.map { "ends at \($0.formatted(date: .omitted, time: .shortened))" }
+        if let trackedProcess { return "Until \(trackedProcess.name) exits" + (end.map { " or \($0)" } ?? "") }
+        return end.map { "E" + $0.dropFirst() }
+    }
     var policyText: String {
-        if let trackedProcess { return "Until \(trackedProcess.name) exits\(deadline == nil ? "." : " or the timer ends.")" }
         if paused && settings.mode == .followPowerSource { return "Automatic mode paused until power changes." }
-        if let deadline { return "Ends at \(deadline.formatted(date: .omitted, time: .shortened))." }
         switch settings.mode {
         case .manual: return "You decide when your Mac stays awake."
         case .followPowerSource: return "Automatically follows your power connection."
