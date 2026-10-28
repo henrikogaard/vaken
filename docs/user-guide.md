@@ -2,7 +2,7 @@
 
 ## First launch
 
-Place the signed app in an Applications folder before registering the helper. Open Vaken from there and choose **Set up helper…**. macOS may request administrator approval or direct you to Login Items & Extensions. Vaken must show **Helper connected** before starting a session.
+Download `Vaken.dmg`, open it and drag `Vaken.app` onto the `Applications` shortcut. Eject the image and open Vaken from Applications before registering the helper. Do not launch the app directly from the read-only image. Choose **Set up helper…**; macOS may request administrator approval or direct you to Login Items & Extensions. Vaken must show **Helper connected** before starting a session.
 
 The outline sun means system sleep is disabled. The moon means normal sleep is allowed. An attention icon means a state read or operation failed; open the dropdown for the error rather than assuming protection is active.
 

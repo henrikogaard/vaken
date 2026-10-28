@@ -33,7 +33,7 @@ cleanup() {
     trap - EXIT
     security delete-keychain "$KEYCHAIN" >/dev/null 2>&1 || true
     rm -f "$PRIVATE_DIR/certificate.p12" "$PRIVATE_DIR/notary.p8" "$PRIVATE_DIR/sparkle.key" \
-        "$PRIVATE_DIR/notarization.zip" "$PRIVATE_DIR/notarization.json"
+        "$PRIVATE_DIR/notarization.zip" "$PRIVATE_DIR/notarization.json" "$PRIVATE_DIR/dmg-notarization.json"
     rmdir "$PRIVATE_DIR" 2>/dev/null || true
     exit "$status"
 }
@@ -74,24 +74,34 @@ test "$("$VAKEN_APP_PATH/Contents/MacOS/vaken" --version)" = "$VAKEN_VERSION"
 test "$("$VAKEN_APP_PATH/Contents/MacOS/vaken" --build-number)" = "$VAKEN_BUILD_NUMBER"
 codesign --verify --deep --strict "$VAKEN_APP_PATH"
 ditto -c -k --sequesterRsrc --keepParent "$VAKEN_APP_PATH" "$PRIVATE_DIR/notarization.zip"
-xcrun notarytool submit "$PRIVATE_DIR/notarization.zip" --key "$PRIVATE_DIR/notary.p8" \
+notarize() {
+    xcrun notarytool submit "$1" --key "$PRIVATE_DIR/notary.p8" \
     --key-id "$APPLE_NOTARY_KEY_ID" --issuer "$APPLE_NOTARY_ISSUER_ID" \
-    --wait --timeout 30m --output-format json > "$PRIVATE_DIR/notarization.json"
-python3 - "$PRIVATE_DIR/notarization.json" <<'PY'
+    --wait --timeout 30m --output-format json > "$2"
+    python3 - "$2" <<'PY'
 import json, sys
 with open(sys.argv[1]) as result:
     if json.load(result).get('status') != 'Accepted':
         sys.exit('Notarization was not Accepted; no release artifacts will be produced.')
 PY
-rm -f "$PRIVATE_DIR/notary.p8"
-unset APPLE_NOTARY_KEY_ID APPLE_NOTARY_ISSUER_ID
+}
+notarize "$PRIVATE_DIR/notarization.zip" "$PRIVATE_DIR/notarization.json"
 xcrun stapler staple "$VAKEN_APP_PATH"
 xcrun stapler validate "$VAKEN_APP_PATH"
 spctl --assess --type execute --verbose=2 "$VAKEN_APP_PATH"
+bash scripts/make-dmg.sh "$VAKEN_APP_PATH" build/Vaken.dmg
+notarize build/Vaken.dmg "$PRIVATE_DIR/dmg-notarization.json"
+xcrun stapler staple build/Vaken.dmg
+xcrun stapler validate build/Vaken.dmg
+codesign --verify --strict build/Vaken.dmg
+rm -f "$PRIVATE_DIR/notary.p8"
+unset APPLE_NOTARY_KEY_ID APPLE_NOTARY_ISSUER_ID
 export VAKEN_SPARKLE_KEY_FILE="$PRIVATE_DIR/sparkle.key"
 bash scripts/prepare-update.sh "$VAKEN_APP_PATH" "$VAKEN_DOWNLOAD_PREFIX" build/release-assets
+mv build/Vaken.dmg build/release-assets/Vaken.dmg
 (
     cd build/release-assets
     shasum -a 256 Vaken.zip appcast.xml > SHA256SUMS
+    shasum -a 256 Vaken.dmg > Vaken.dmg.sha256
 )
 echo 'Signed, notarized release assets prepared. Publication is not performed by this script.'

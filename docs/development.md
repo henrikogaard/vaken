@@ -34,6 +34,8 @@ sh scripts/make-app.sh
 
 The build script writes `build/Vaken.app` unless `VAKEN_APP_PATH` names another staging bundle. It preserves Sparkle framework symlinks, signs nested executables inside-out, signs the sleep helper and enclosing app, and verifies the final signature. It does not register any service, install into Applications, increment a version or publish artifacts.
 
+`scripts/make-dmg.sh <stapled-app> <new-output.dmg>` stages the signed app and an Applications shortcut, creates a read-only image and signs it. Image notarization is separate. The release workflow notarizes both containers and attaches the DMG with its own checksum sidecar while retaining the Sparkle ZIP.
+
 The current signing identity is configured in `scripts/make-app.sh`; the expected team is in `ServiceIdentity`. A fork needs its own consistent app/helper identifiers, team requirements, signing identity and update keys. Changing only the outer app signature is insufficient. Never disable library validation or add a debug entitlement to bypass helper verification.
 
 Version 0.1.0 and build number 1 are owned by `AppInfo.swift`, exposed by `--version` and `--build-number`. Release owners must approve changes to both fields separately. The tag workflow validates the committed values and creates a draft, never a published release; see [releases](releases.md).
