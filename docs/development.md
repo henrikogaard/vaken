@@ -38,7 +38,7 @@ The build script writes `build/Vaken.app` unless `VAKEN_APP_PATH` names another 
 
 The current signing identity is configured in `scripts/make-app.sh`; the expected team is in `ServiceIdentity`. A fork needs its own consistent app/helper identifiers, team requirements, signing identity and update keys. Changing only the outer app signature is insufficient. Never disable library validation or add a debug entitlement to bypass helper verification.
 
-Version 0.2.0 and build number 2 are owned by `AppInfo.swift`, exposed by `--version` and `--build-number`. Release owners must approve changes to both fields separately. The tag workflow validates the committed values and creates a draft, never a published release; see [releases](releases.md).
+Version 0.3.0 and build number 3 are owned by `AppInfo.swift`, exposed by `--version` and `--build-number`. Release owners must approve changes to both fields separately. The tag workflow validates the committed values and creates a draft, never a published release; see [releases](releases.md).
 
 ## Native previews
 
