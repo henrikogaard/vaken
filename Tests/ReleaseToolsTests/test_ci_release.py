@@ -41,6 +41,8 @@ elif name == 'bash':
         output.mkdir(parents=True)
         (output / 'Vaken.zip').write_bytes(b'fake-archive')
         (output / 'appcast.xml').write_text('<rss/>')
+    elif args[0] == 'scripts/make-dmg.sh':
+        pathlib.Path(args[-1]).write_bytes(b'fake-dmg')
     else:
         sys.exit('Unexpected bash child')
 elif name == 'ditto':
@@ -50,7 +52,10 @@ elif name == 'xcrun':
         key = pathlib.Path(args[args.index('--key') + 1])
         assert key.stat().st_mode & 0o077 == 0
         assert key.read_bytes() == b'fake-notary-key'
-        print(json.dumps({'status': os.environ.get('TEST_NOTARY_STATUS', 'Accepted')}))
+        log = [json.loads(line) for line in pathlib.Path(os.environ['TEST_LOG']).read_text().splitlines()]
+        count = sum(entry == ['xcrun', 'notarytool'] for entry in log)
+        status = os.environ.get('TEST_DMG_NOTARY_STATUS' if count == 2 else 'TEST_NOTARY_STATUS', 'Accepted')
+        print(json.dumps({'status': status}))
 elif name not in ['codesign', 'spctl']:
     sys.exit('Unexpected stub tool')
 '''
@@ -94,7 +99,7 @@ class CIReleaseTests(unittest.TestCase):
     def test_success_prepares_only_distribution_assets_and_cleans_credentials(self):
         result, calls, assets = self.run_fixture()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(assets, ["SHA256SUMS", "Vaken.zip", "appcast.xml"])
+        self.assertEqual(assets, ["SHA256SUMS", "Vaken.dmg", "Vaken.dmg.sha256", "Vaken.zip", "appcast.xml"])
         self.assertIn(["security", "delete-keychain"], calls)
 
     def test_notarization_rejection_does_not_produce_assets(self):
@@ -107,6 +112,13 @@ class CIReleaseTests(unittest.TestCase):
         result, calls, assets = self.run_fixture(TEST_FAIL_IMPORT="1")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(assets, [])
+        self.assertIn(["security", "delete-keychain"], calls)
+
+    def test_dmg_notarization_rejection_blocks_distribution(self):
+        result, calls, assets = self.run_fixture(TEST_DMG_NOTARY_STATUS="Invalid")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(assets, [])
+        self.assertEqual(calls.count(["xcrun", "notarytool"]), 2)
         self.assertIn(["security", "delete-keychain"], calls)
 
     def test_local_execution_is_refused_before_keychain_access(self):

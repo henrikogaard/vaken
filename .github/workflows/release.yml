@@ -66,6 +66,8 @@ jobs:
             build/release-assets/Vaken.zip
             build/release-assets/appcast.xml
             build/release-assets/SHA256SUMS
+            build/release-assets/Vaken.dmg
+            build/release-assets/Vaken.dmg.sha256
           if-no-files-found: error
           retention-days: 7
 
@@ -83,7 +85,9 @@ jobs:
           path: release-assets
       - name: Verify checksums
         working-directory: release-assets
-        run: sha256sum --check SHA256SUMS
+        run: |
+          sha256sum --check SHA256SUMS
+          sha256sum --check Vaken.dmg.sha256
       - name: Create draft for the existing tag
         working-directory: release-assets
         env:
@@ -99,8 +103,12 @@ jobs:
           Requires macOS 13 or later. This archive supports Apple Silicon only.
           Developer ID signed, notarized and stapled. Sparkle archive signature verified.
 
+          Install: open Vaken.dmg, drag Vaken.app to Applications, eject the disk image,
+          then launch Vaken from Applications and approve the helper when requested.
+          Vaken.zip is the Sparkle update archive and remains available for manual use.
+
           Maintainer review required before publishing: complete the release checklist
           in docs/releases.md, including the signed old-to-new update test.
           EOF
-          gh release create "$RELEASE_TAG" Vaken.zip appcast.xml SHA256SUMS \
+          gh release create "$RELEASE_TAG" Vaken.dmg Vaken.dmg.sha256 Vaken.zip appcast.xml SHA256SUMS \
             --verify-tag --draft --title "Vaken $RELEASE_VERSION" --notes-file release-notes.md

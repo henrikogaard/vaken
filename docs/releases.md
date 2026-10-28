@@ -14,8 +14,8 @@ Before signing, validation rejects an existing release for the same tag, a non-i
 
 The workflow has two jobs:
 
-1. **Package**, on a GitHub-hosted Apple Silicon `macos-15` runner with Xcode 26.2. It requires the `release` environment, tests without signing credentials, imports the existing Developer ID certificate into a disposable keychain, builds, notarizes, requires Apple's Accepted result, staples/assesses and verifies the signed Sparkle archive. This initial archive supports **arm64 only**. The app, sleep helper and Sparkle components use the configured Developer ID signing identity.
-2. **Draft**, on a separate runner without signing secrets. It downloads only this run's `Vaken.zip`, `appcast.xml` and `SHA256SUMS`, checks hashes and creates a draft for the existing tag using `--verify-tag`. Repository-write permission is limited to this job. Publication and the stable feed stay unchanged until the release owner publishes the draft manually.
+1. **Package**, on a GitHub-hosted Apple Silicon `macos-15` runner with Xcode 26.2. It requires the `release` environment, tests without signing credentials, imports the existing Developer ID certificate into a disposable keychain, builds and notarizes the app, then creates and separately notarizes the DMG. Both submissions must be Accepted before assets are uploaded. It staples/assesses and verifies the signed Sparkle archive. This initial distribution supports **arm64 only**. The app, sleep helper, Sparkle components and disk image use the configured Developer ID signing identity.
+2. **Draft**, on a separate runner without signing secrets. It downloads only this run's `Vaken.dmg`, `Vaken.dmg.sha256`, `Vaken.zip`, `appcast.xml` and `SHA256SUMS`, checks both checksum files and creates a draft for the existing tag using `--verify-tag`. Repository-write permission is limited to this job. Publication and the stable feed stay unchanged until the release owner publishes the draft manually.
 
 All referenced third-party actions are pinned to reviewed commit IDs. Checkout does not retain a Git credential. Signing secrets are scoped to the signing step, and only distribution files are uploaded as seven-day workflow artifacts. Private key files, certificate archives, temporary keychain and notarization submission files are cleaned up on exit or handled signals; GitHub-hosted runner disposal remains the backstop for abrupt termination. `scripts/ci-release.sh` refuses ordinary local and self-hosted execution to avoid changing a developer's keychain configuration.
 
@@ -85,6 +85,18 @@ Do not weaken signature checks or ship an ad-hoc helper build to bypass notariza
 
 ## Prepare local update assets
 
+The primary installer is `Vaken.dmg`. Its read-only image contains `Vaken.app` and an `Applications` symbolic link targeting `/Applications`. The app is copied with bundle/framework links preserved, not rebuilt inside the image. Users drag it to Applications and eject the image before first launch. `Vaken.zip` remains the Sparkle update archive, so adding the DMG does not change updater URLs or existing signatures.
+
+Create the image only from a signed, stapled app:
+
+```sh
+bash scripts/make-dmg.sh build/Vaken.app build/Vaken.dmg
+```
+
+This refuses to overwrite an existing image, stages only the app and shortcut, creates a compressed read-only HFS+ image and signs it. Submit the DMG to notarization separately, require Accepted status, then staple/validate and verify it before distribution. The release workflow performs these steps with the protected environment credentials. Local notarization requires explicit release-owner authorization.
+
+For an installation check, mount with `hdiutil attach -readonly -nobrowse` at an explicit temporary mountpoint. Verify `Applications -> /Applications`, the app's signature/version and the image signature/ticket; detach only that mounted image. Do not install or launch a helper as part of the image-layout check.
+
 `scripts/sparkle-tools.sh` downloads the pinned official tooling archive, verifies its SHA-256 checksum and extracts it under ignored build output. It neither generates nor reads signing keys.
 
 `scripts/prepare-update.sh` requires a configured, signed and stapled bundle; a private signing-key file owned by the invoking user with mode 0600 or stricter; an immutable HTTPS download prefix; and a new output directory. It creates one full archive, no deltas, and a one-entry appcast. This keeps update preparation separate from publication and avoids pruning an existing release directory.
@@ -100,6 +112,8 @@ sh scripts/prepare-update.sh \
 
 Replace `APPROVED_TAG` only after approving a release version. Output contains `Vaken.zip` and `appcast.xml`. The archive contains only the app bundle and preserves framework links and permissions. The script verifies the archive length, build identifier, HTTPS enclosure URL and Ed25519 signature against the public key inside the app. A mismatched private key fails verification rather than producing publishable assets. The XML feed itself is not signed in this initial integration.
 
+After the DMG is notarized/stapled, copy it into the release-assets directory. `SHA256SUMS` covers the ZIP and appcast; `Vaken.dmg.sha256` covers the final stapled image. The separate sidecar allows an existing draft to gain an installer without replacing its original Sparkle archive, appcast or checksum file. Never use `--clobber` or move an existing tag to make this addition. A published release still needs explicit approval before changing its assets.
+
 The caller owns the temporary key file's lifecycle and must remove it after signing, including on failure. Never store the key under the repository, release-output directory or app bundle. Tools may report public signatures; private key values must never enter stdout, shell tracing or a PR.
 
 ## Publication checklist
@@ -113,6 +127,7 @@ The caller owns the temporary key file's lifecycle and must remove it after sign
 - [ ] Settings and helper-owned authentication policy survive the update test.
 - [ ] Signed old-to-new Sparkle test passes, including restart/restore failure paths.
 - [ ] Appcast signature, version, size, minimum macOS and architecture metadata checked.
+- [ ] DMG signature/notarization, read-only mount, app contents and Applications shortcut checked.
 - [ ] Immutable archive URL and stable appcast URL verified after upload.
 - [ ] Release notes list changes, supported architectures and unresolved limitations.
 - [ ] Third-party notices and MIT license included appropriately.

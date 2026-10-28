@@ -6,6 +6,10 @@ Keep your Mac awake. Let your screen rest.
 
 Vaken is a native macOS menu-bar app for keeping a Mac reachable during remote work, builds and other long-running tasks. It controls system sleep separately from display sleep and screen locking.
 
+**[Download Vaken.dmg](https://github.com/henrikogaard/vaken/releases/latest/download/Vaken.dmg)** · [All releases](https://github.com/henrikogaard/vaken/releases)
+
+<img src="docs/images/dropdown.png" alt="Vaken dropdown with Keep awake enabled, mode selection, timer presets and countdown" width="320">
+
 ## Features
 
 - One Keep awake switch, with an outline sun for On and crescent moon for Off.
@@ -19,23 +23,72 @@ Vaken is a native macOS menu-bar app for keeping a Mac reachable during remote w
 
 ## Requirements and installation
 
-Requires macOS 13 or later. Current builds target the architecture of the build machine; an Intel distribution has not been verified.
+Requires **macOS 13 or later on Apple Silicon**. Intel and universal distributions have not been verified.
 
-Public release downloads are not available yet. For a locally supplied signed build:
+1. Download **Vaken.dmg** from [Releases](https://github.com/henrikogaard/vaken/releases).
+2. Open the disk image and drag **Vaken.app** onto the **Applications** shortcut inside it.
+3. Eject the disk image, then open **Vaken** from Applications. Do not run it directly from the image: the helper needs a stable app location.
+4. Click Vaken's moon icon in the menu bar and choose **Set up helper…**.
+5. Complete any macOS approval in **System Settings → General → Login Items & Extensions**. Wait for **Helper connected**, then turn on **Keep awake**.
 
-1. Copy `Vaken.app` to a stable Applications folder before opening it.
-2. Choose **Set up helper…** in Vaken. Complete any macOS approval in **System Settings → General → Login Items & Extensions**.
-3. Wait for **Helper connected**, then turn on **Keep awake**.
+If an older copy is running, end its session and quit it before replacing the app. Keep only the intended installed copy running.
+
+Release apps and disk images are Developer ID signed, notarized and stapled. The ZIP remains available for Sparkle updates and manual installation.
 
 Setup uses a signed system helper. No Terminal step or global sudo/PAM changes are required.
 
-## Use
+## Using Vaken
 
-The main switch starts an indefinite session. Choose **15m**, **30m**, **1h** or **2h** for a timer. **More…** contains custom time and process options. **Off** cancels the session and restores normal sleep. In Follow mode, manual Off pauses automatic enabling until the power source changes or you manually turn it on again.
+### Start and stop
 
-The default mode, **Manual + safety net**, restores normal sleep when unplugged. **Manual** permits battery operation but still applies the battery cutoff and Low Power Mode protection. Keep display awake is off by default.
+Click the menu-bar icon and turn **Keep awake** On. Authenticate with Touch ID or password when asked. The outline sun means system sleep is disabled; the crescent moon means normal sleep is allowed. Your screen can still sleep and lock as usual.
 
-Updates appear under **Settings → About**, with a manual check also available in configured builds' dropdowns. Sparkle asks permission for automatic checks and preserves that choice. Installation requires ending the active session first; Vaken does not restart unattended. Local builds without a feed and public signing key show **Updates are not configured** and make no updater requests. See the [user guide](docs/user-guide.md).
+The main switch starts an indefinite session. Turn it Off or choose **End session** to cancel the session and restore normal sleep. Quitting Vaken also restores normal sleep; if restoration fails, Vaken stays open and shows an error.
+
+### Choose a mode
+
+The **Mode** dropdown is available directly in the menu and in Settings.
+
+| Mode | Use it when | Behavior |
+|---|---|---|
+| Manual + safety net | You want manual control while plugged in | Default. You start the session; unplugging restores normal sleep |
+| Follow power source | You want power-connected automation | Enables on AC; restores sleep on battery |
+| Manual | You need an explicit session on either power source | You choose when it ends; battery cutoff and Low Power Mode protection still apply |
+
+Manual Off and timer/process completion pause Follow until the power source changes or you explicitly turn Keep awake on again. This lets a session actually end instead of immediately restarting.
+
+### Set a timer or follow a process
+
+Choose **15m**, **30m**, **1h** or **2h** in the dropdown to start a timed session. The countdown shows the time remaining, and **+15 min** extends it. Changing a timer while already awake does not ask for authentication again.
+
+Open **More…** for longer presets, custom minutes, a clock deadline, a running application or a PID. A process-linked session ends when that specific process exits, even if its PID is later reused.
+
+<img src="docs/images/session-options.png" alt="More session options with custom minutes, a clock deadline, running-app selection and a process ID field" width="355">
+
+An app remaining open is not proof that a background job is active. Select the actual build/download process when that distinction matters.
+
+### Configure authentication and safety
+
+Open **Settings…** for the battery cutoff, authentication, display control, login preference, notifications and global shortcut.
+
+<img src="docs/images/settings.png" alt="Settings excerpt showing mode, battery cutoff, native authentication choice and connected helper" width="500">
+
+- **Require Touch ID or password** is On by default. Turn it Off and authenticate once to allow future new sessions to start silently. Turning it back On restores prompting. Restoring sleep is always prompt-free.
+- **Battery cutoff** defaults to 15% and is adjustable between 5% and 50%. On battery, reaching that level or enabling Low Power Mode ends the session in every mode.
+- **Keep display awake** is Off by default. Enable it only when the display itself must remain on; it does not unlock the screen.
+- **Keyboard shortcut** records Command or Control plus another modifier. Conflicts are reported. Launch at login and state notifications use the corresponding macOS permissions.
+
+If the authentication switch is disabled, check the helper status. An older helper needs **Update…** after the current session ends. If registration fails and Setup is offered again, retry Setup rather than changing system files.
+
+### Check for updates
+
+Open **Settings → About → Check for Updates…**, or use the dropdown's manual check. Sparkle asks permission for automatic checks and preserves that choice.
+
+<img src="docs/images/updates.png" alt="About view with Check for Updates and the automatic-check preference" width="500">
+
+End Keep awake before installing an update. Vaken does not restart unattended, and an update offer temporarily blocks new sessions until it is finished or dismissed. Local development builds without a feed/key show **Updates are not configured** and make no updater requests.
+
+Screenshots show Vaken 0.1.0 native views with demonstration session data. The Settings screenshot is cropped to the mode and authentication controls. See the [full user guide](docs/user-guide.md) for troubleshooting and removal.
 
 ## Safety and privacy
 
