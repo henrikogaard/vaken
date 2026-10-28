@@ -85,6 +85,53 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(m.deadline!.timeIntervalSince(first), 900, accuracy: 1)
         m.startMinutes(30); XCTAssertEqual(a.calls, 1)
     }
+    func testRemoveDeadlineReturnsToNoLimitWithoutReauth() {
+        let s = Service(), a = Auth()
+        let m = model(s, a); m.setAwake(true); m.extendSession()
+        XCTAssertNotNil(m.deadline)
+        m.removeDeadline()
+        XCTAssertNil(m.deadline); XCTAssertNil(s.config?.deadline)
+        XCTAssertEqual(a.calls, 1); XCTAssertEqual(s.begins, 1); XCTAssertEqual(s.updates, 2)
+    }
+    func testActiveSessionIsRememberedAndQuitKeepsIt() {
+        let s = Service(), a = Auth(); let m = model(s, a)
+        m.startMinutes(30)
+        let deadline = m.deadline
+        XCTAssertEqual(m.settings.resumeSession, ResumeSession(deadline: deadline))
+        m.quit()
+        XCTAssertFalse(s.awake); XCTAssertEqual(m.settings.resumeSession, ResumeSession(deadline: deadline))
+    }
+    func testTurningOffForgetsTheSession() {
+        let s = Service(), a = Auth(); let m = model(s, a)
+        m.setAwake(true); XCTAssertEqual(m.settings.resumeSession, ResumeSession(deadline: nil))
+        m.setAwake(false); XCTAssertNil(m.settings.resumeSession)
+    }
+    func testLaunchResumesRememberedSessionOnce() {
+        let s = Service(), a = Auth(); let m = model(s, a)
+        let deadline = Date().addingTimeInterval(1800)
+        m.settings.resumeSession = ResumeSession(deadline: deadline)
+        m.resumeIfNeeded(); m.resumeIfNeeded()
+        XCTAssertEqual(s.begins, 1); XCTAssertEqual(a.calls, 1)
+        XCTAssertEqual(s.config?.deadline, deadline)
+    }
+    func testLaunchDoesNotResumeExpiredOrCancelledSession() {
+        let s = Service(), a = Auth(); let m = model(s, a)
+        m.settings.resumeSession = ResumeSession(deadline: Date().addingTimeInterval(-60))
+        m.resumeIfNeeded()
+        XCTAssertEqual(s.begins, 0); XCTAssertNil(m.settings.resumeSession)
+
+        let s2 = Service(), a2 = Auth(); a2.result = .cancelled; let m2 = model(s2, a2)
+        m2.settings.resumeSession = ResumeSession(deadline: nil)
+        m2.resumeIfNeeded()
+        XCTAssertEqual(s2.begins, 0); XCTAssertNil(m2.settings.resumeSession)
+    }
+    func testFollowModeDoesNotUseResume() {
+        let s = Service(), a = Auth(); let m = model(s, a)
+        m.settings.mode = .followPowerSource
+        m.settings.resumeSession = ResumeSession(deadline: nil)
+        m.resumeIfNeeded()
+        XCTAssertEqual(a.calls, 0)
+    }
     func testQuitFailureKeepsAppAlive() {
         let s = Service(), a = Auth(); s.failRestore = true
         let m = model(s, a); m.setAwake(true)

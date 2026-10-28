@@ -18,7 +18,7 @@ The battery cutoff defaults to 15% and is adjustable from 5% to 50%. It applies 
 
 ## Timers and processes
 
-The main switch starts without a time limit. The dropdown presets start timed sessions. Selecting a new timer while already awake updates the active session without another enable prompt. **+15 min** extends a deadline; for an indefinite session it creates a 15-minute deadline. **End session** cancels all end conditions and restores normal sleep.
+The main switch starts without a time limit. The dropdown presets start timed sessions. Selecting a new timer while already awake updates the active session without another enable prompt. **+15 min** extends a deadline; for an indefinite session it creates a 15-minute deadline. **End session** cancels all end conditions and restores normal sleep. **Remove time limit** clears a deadline and keeps the session running. If Keep awake was on when Vaken quit or the Mac restarted, Vaken turns it on again the next time it opens, keeping any remaining time limit. Turn on **Launch at login** for this to work after a restart. It asks for Touch ID or password first when that is required. Sessions that end with an app, sessions whose time ran out and Follow power source mode are not resumed. Until Vaken opens again, normal sleep applies.
 
 **More…** accepts custom minutes, a future clock time, a running app or a PID. A process session tracks both the PID and its start identity, so PID reuse does not prolong it. An application remaining open is not proof that its background jobs are active. Select the actual build or download process when needed.
 

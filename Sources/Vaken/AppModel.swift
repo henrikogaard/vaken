@@ -36,6 +36,7 @@ final class AppModel: ObservableObject {
     private var generation = 0
     private var quitRequested = false
     private var stopRequested = false
+    private var resumeChecked = false
     private var retryAfter = Date.distantPast
     private var shortcut: GlobalShortcut?
     var onChange: (() -> Void)?
@@ -147,10 +148,13 @@ final class AppModel: ObservableObject {
             guard self.generation == observationGeneration, self.busy == nil else { return }
             let hadSession = self.sessionID != nil
             self.accept(response)
-            if hadSession && response.ok && response.sessionID == nil { self.paused = true }
+            if hadSession && response.ok && response.sessionID == nil {
+                self.paused = true
+                if !self.quitRequested { self.forgetSession() }
+            }
             self.changed()
             if self.quitRequested, self.busy == nil, Date() >= self.retryAfter { self.stop(interactive: false) }
-            else { self.evaluateFollow() }
+            else { self.resumeIfNeeded(); self.evaluateFollow() }
         }
         if let id = sessionID { service.heartbeat(id, reply: callback) }
         else { service.status(callback) }
@@ -162,6 +166,7 @@ final class AppModel: ObservableObject {
             ready = true; flag = response.awake
             sessionID = response.sessionID; configuration = response.configuration
             deadline = response.configuration?.deadline; trackedProcess = response.configuration?.process
+            if sessionID != nil { rememberSession(configuration) }
         } else {
             error = response.message ?? "The helper could not complete the request."
             if response.sessionID == nil && response.awake == false {
@@ -196,6 +201,25 @@ final class AppModel: ObservableObject {
               power.isAC == true, Date() >= retryAfter else { return }
         setAwake(true)
     }
+    /// Starts the session that was on when Vaken last quit or the Mac restarted, once per launch.
+    func resumeIfNeeded() {
+        guard !resumeChecked, busy == nil, !updateInProgress, ready, power.isAC != nil else { return }
+        resumeChecked = true
+        guard flag == false, let resume = settings.resumeSession, settings.mode != .followPowerSource else { return }
+        if let deadline = resume.deadline, deadline <= Date() { forgetSession(); return }
+        guard settings.mode == .manual || power.isAC == true else { forgetSession(); return }
+        startSession(makeConfiguration(deadline: resume.deadline))
+    }
+    private func rememberSession(_ config: SessionConfiguration?) {
+        // A process-linked session cannot outlive its process, so it is not resumed.
+        let next = config.flatMap { $0.process == nil ? ResumeSession(deadline: $0.deadline) : nil }
+        guard settings.resumeSession != next else { return }
+        settings.resumeSession = next; persist()
+    }
+    private func forgetSession() {
+        guard settings.resumeSession != nil else { return }
+        settings.resumeSession = nil; persist()
+    }
     private func makeConfiguration(deadline: Date? = nil, process: ProcessIdentity? = nil) -> SessionConfiguration {
         .init(deadline: deadline, process: process, mode: settings.mode, batteryFloor: settings.batteryFloor, displayAwake: settings.displayAwake)
     }
@@ -218,6 +242,10 @@ final class AppModel: ObservableObject {
     func extendSession() {
         guard var config = configuration else { startMinutes(15); return }
         config.extend(now: Date()); startSession(config)
+    }
+    func removeDeadline() {
+        guard var config = configuration, config.deadline != nil else { return }
+        config.deadline = nil; startSession(config)
     }
     private func startSession(_ config: SessionConfiguration, relativeDuration: TimeInterval? = nil) {
         guard !preview, busy == nil else { return }
@@ -262,8 +290,8 @@ final class AppModel: ObservableObject {
                     self.busy = nil; self.changed(); self.finishPendingStop(); return
                 }
                 switch outcome {
-                case .cancelled: self.busy = nil; self.paused = true; self.changed()
-                case .failed(let message): self.busy = nil; self.error = message; self.paused = true; self.changed()
+                case .cancelled: self.busy = nil; self.paused = true; self.forgetSession(); self.changed()
+                case .failed(let message): self.busy = nil; self.error = message; self.paused = true; self.forgetSession(); self.changed()
                 case .success:
                     self.busy = "Enabling Keep awake…"; self.changed()
                     var authorizedConfig = config
@@ -286,6 +314,7 @@ final class AppModel: ObservableObject {
     private func stop(interactive: Bool) {
         guard !preview else { return }
         generation += 1; paused = true; stopRequested = true; authentication.cancel()
+        if !quitRequested { forgetSession() }
         if busy != nil { changed(); return }
         stopRequested = false
         busy = "Restoring normal sleep…"; changed()

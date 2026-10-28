@@ -12,7 +12,7 @@ The authentication requirement is helper-owned per user, defaults to On and is r
 
 ## Session recovery and limits
 
-The helper owns deadlines, process identity, battery policy and display assertions. A 30-second monotonic lease is renewed by the UI, and a five-second helper tick checks end conditions. Disconnection and failed heartbeats lead to restoration. An ownership marker enables reconciliation after helper restart. Privileged utility invocations are bounded by termination and kill timeouts.
+The helper owns deadlines, process identity, battery policy and display assertions. A 30-second monotonic lease is renewed by the UI, and a five-second helper tick checks end conditions. Disconnection and failed heartbeats lead to restoration. An ownership marker enables reconciliation after helper restart. Resuming after a quit or restart is an app-side preference only: the helper still restores sleep whenever the app is gone, and a resumed session is a new session with the usual authentication. Privileged utility invocations are bounded by termination and kill timeouts.
 
 Every write is read back. Failed restoration stays visible and is retried. These mechanisms do not guarantee recovery after every OS, hardware, service-removal or filesystem failure. Thermal protections remain outside Vaken's control. A powered, awake computer must remain adequately ventilated.
 
