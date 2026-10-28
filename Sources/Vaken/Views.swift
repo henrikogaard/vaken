@@ -203,39 +203,58 @@ struct VakenSettings: View {
     @ObservedObject var model: AppModel
     @ObservedObject var updater: AppUpdater
     @State private var section: SettingsSection
-    @State private var timerExpanded: Bool
-    @State private var duration = SessionLength.minutes30
 
-    init(model: AppModel, updater: AppUpdater = AppUpdater(), section: SettingsSection = .general, timerExpanded: Bool = false) {
+    init(model: AppModel, updater: AppUpdater = AppUpdater(), section: SettingsSection = .general) {
         self.model = model
         self.updater = updater
         _section = State(initialValue: section)
-        _timerExpanded = State(initialValue: timerExpanded)
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("Settings").font(.system(size: 16, weight: .semibold))
-                Spacer()
-                Picker("Settings section", selection: $section) {
-                    ForEach(SettingsSection.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                }
-                .labelsHidden().pickerStyle(.segmented).frame(width: 178)
-                .accessibilityIdentifier("settings-section")
-            }.padding(.horizontal, 24).padding(.vertical, 18)
-            Divider()
-            ScrollView {
-                if section == .general { general.padding(24) }
-                else { about.padding(24) }
+            Picker("Settings section", selection: $section) {
+                ForEach(SettingsSection.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }
+            .labelsHidden().pickerStyle(.segmented).frame(width: 178)
+            .accessibilityIdentifier("settings-section")
+            .padding(.vertical, 14)
+            Divider()
+            if section == .general { general.padding(24) }
+            else { about.padding(24) }
         }
-        .frame(width: 500, height: 700)
+        .frame(width: 500)
+        .fixedSize(horizontal: false, vertical: true)
         .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    private var helperBanner: some View {
+        let update = model.helperNeedsUpdate
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: update ? "exclamationmark.triangle.fill" : "lock.shield").foregroundStyle(warmAccent)
+                Text(update ? "Helper update needed" : "Helper setup needed").font(.system(size: 13, weight: .semibold))
+                Spacer()
+                if model.busy != nil || model.checkingSetup { ProgressView().controlSize(.small) }
+                Button(update ? "Update…" : "Set up…", action: model.configureRestore)
+                    .buttonStyle(.borderedProminent).tint(warmAccent)
+                    .disabled(model.busy != nil || model.checkingSetup)
+                    .accessibilityLabel(update ? "Update Vaken helper" : "Set up Vaken helper")
+                    .accessibilityIdentifier("settings-setup")
+            }
+            Text(update ? "End the current session, then update the helper to enable the authentication choice." : (model.setupStatus.isEmpty ? "One-time system approval lets Vaken manage sleep and restore it silently." : model.setupStatus))
+                .font(.system(size: 11)).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(warmAccent.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(warmAccent.opacity(0.35)))
     }
 
     private var general: some View {
         VStack(alignment: .leading, spacing: 18) {
+            if !model.ready || model.helperNeedsUpdate { helperBanner }
+            if let error = model.error { InlineError(message: error) }
+
             SettingsCard(title: "Keep awake") {
                 HStack {
                     Text("Mode")
@@ -263,8 +282,9 @@ struct VakenSettings: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Require Touch ID or password")
-                        Text("Before starting a new Keep awake session.")
+                        Text(model.authenticationRequired ? "Before each new Keep awake session. Turning this off asks once." : "New sessions start without a prompt.")
                             .font(.system(size: 11)).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
                     Toggle("Require Touch ID or password before enabling", isOn: Binding(get: { model.authenticationRequired }, set: model.changeAuthenticationRequired))
@@ -272,9 +292,6 @@ struct VakenSettings: View {
                         .disabled(!model.supportsAuthenticationPolicy || model.busy != nil)
                         .accessibilityIdentifier("require-authentication")
                 }
-                Text(model.authenticationRequired ? "Turning this off asks once. Future starts can then be silent." : "New awake sessions start without an authentication prompt.")
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
                 Divider()
                 HStack {
                     Text("Authenticate with")
@@ -282,29 +299,32 @@ struct VakenSettings: View {
                     Picker("Authentication", selection: Binding(get: { model.settings.authentication }, set: model.changeAuthentication)) {
                         ForEach(AuthenticationMethod.allCases, id: \.self) { Text($0.label).tag($0) }
                     }.labelsHidden().frame(width: 205)
+                        .disabled(!model.authenticationRequired)
                 }
-                Divider()
-                HStack {
-                    Label(model.helperNeedsUpdate ? "Helper update needed" : (model.ready ? "Helper connected" : "Helper setup needed"),
-                          systemImage: model.ready ? "checkmark.circle.fill" : "circle.dashed")
-                        .foregroundStyle(model.ready ? Color.secondary : warmAccent)
-                    Spacer()
-                    if model.busy != nil || model.checkingSetup { ProgressView().controlSize(.small) }
-                    Button(model.helperNeedsUpdate ? "Update…" : (model.ready ? "Check…" : "Set up…"), action: model.configureRestore)
-                        .disabled(model.busy != nil || model.checkingSetup)
-                        .accessibilityLabel(model.helperNeedsUpdate ? "Update Vaken helper" : (model.ready ? "Check Vaken helper" : "Set up Vaken helper"))
-                        .accessibilityIdentifier("settings-setup")
+                if model.ready && !model.helperNeedsUpdate {
+                    Divider()
+                    HStack {
+                        Label("Helper connected", systemImage: "checkmark.circle.fill").foregroundStyle(.secondary)
+                        Spacer()
+                        if model.busy != nil || model.checkingSetup { ProgressView().controlSize(.small) }
+                        Button("Check…", action: model.configureRestore)
+                            .disabled(model.busy != nil || model.checkingSetup)
+                            .accessibilityLabel("Check Vaken helper")
+                            .accessibilityIdentifier("settings-setup")
+                    }
+                    if !model.setupStatus.isEmpty {
+                        Text(model.setupStatus).font(.system(size: 11)).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
-                Text(model.helperNeedsUpdate ? "End the current session, then update the helper to enable the authentication choice." : (model.setupStatus.isEmpty ? "One-time system approval lets Vaken manage sleep and restore it silently." : model.setupStatus))
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
 
             SettingsCard(title: "Preferences") {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Keep display awake")
-                        Text("Only during a Keep awake session.").font(.system(size: 11)).foregroundStyle(.secondary)
+                        Text(model.settings.displayAwake ? "Only during a Keep awake session." : "Your screen sleeps and locks as usual.")
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
                     }
                     Spacer()
                     Toggle("Keep display awake", isOn: Binding(get: { model.settings.displayAwake }, set: model.changeDisplay)).labelsHidden()
@@ -334,27 +354,6 @@ struct VakenSettings: View {
                     if model.recordingShortcut { Button("Cancel", action: model.cancelShortcutRecording) }
                 }
             }.toggleStyle(.switch).controlSize(.small)
-
-            DisclosureGroup("Optional timer", isExpanded: $timerExpanded) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Picker("Keep awake for", selection: $duration) {
-                            ForEach(SessionLength.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                        }
-                        Button("Start") { model.setAwake(true, duration: duration) }
-                            .disabled(model.busy != nil || !model.ready)
-                    }
-                    Text("The main switch has no timer. Turning it off cancels a running timer.")
-                        .font(.system(size: 11)).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }.padding(.top, 10)
-            }
-            .padding(.horizontal, 3)
-
-            if let error = model.error { InlineError(message: error) }
-            Text("Your display and lock screen keep their usual behavior.")
-                .font(.system(size: 11)).foregroundStyle(.secondary)
-                .padding(.horizontal, 3)
         }
         .font(.system(size: 12))
         .disabled(model.busy != nil)
@@ -370,10 +369,12 @@ struct VakenSettings: View {
             Text("Version \(AppInfo.version)").font(.system(size: 12)).foregroundStyle(.secondary)
                 .padding(.top, 5).accessibilityIdentifier("about-version")
             VStack(spacing: 10) {
-                Button("Check for Updates…", action: updater.check).disabled(!updater.canCheck)
-                    .accessibilityIdentifier("check-updates")
-                Toggle("Automatically check for updates", isOn: Binding(get: { updater.automaticChecks }, set: updater.setAutomaticChecks))
-                    .disabled(!updater.configured).toggleStyle(.checkbox)
+                if updater.configured {
+                    Button("Check for Updates…", action: updater.check).disabled(!updater.canCheck)
+                        .accessibilityIdentifier("check-updates")
+                    Toggle("Automatically check for updates", isOn: Binding(get: { updater.automaticChecks }, set: updater.setAutomaticChecks))
+                        .toggleStyle(.checkbox)
+                }
                 Text(updater.status).font(.system(size: 11)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }.padding(.top, 16).frame(width: 300)
@@ -528,6 +529,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.performClose(nil)
         if settingsWindow == nil {
             let host = NSHostingController(rootView: VakenSettings(model: model, updater: updater))
+            host.sizingOptions = [.preferredContentSize]
             let window = NSWindow(contentViewController: host)
             window.title = "Vaken Settings"
             window.styleMask = [.titled, .closable, .miniaturizable]

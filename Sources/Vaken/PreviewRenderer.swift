@@ -32,8 +32,6 @@ enum PreviewRenderer {
             }
             try capture(VakenSettings(model: model, updater: AppUpdater(previewConfigured: true), section: .about), width: 500,
                         to: root.appendingPathComponent("settings-updates-\(dark ? "dark" : "light").png"))
-            try capture(VakenSettings(model: model, timerExpanded: true), width: 500,
-                        to: root.appendingPathComponent("settings-timer-\(dark ? "dark" : "light").png"))
             try capture(SessionOptions(model: model, dismiss: {}), width: 355,
                         to: root.appendingPathComponent("session-options-\(dark ? "dark" : "light").png"))
             model.authenticationRequired = false
