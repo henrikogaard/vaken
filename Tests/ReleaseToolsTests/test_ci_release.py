@@ -74,6 +74,7 @@ class CIReleaseTests(unittest.TestCase):
             (root / "scripts").mkdir()
             script = root / "scripts/ci-release.sh"
             shutil.copyfile(ROOT / "scripts/ci-release.sh", script)
+            shutil.copy(ROOT / "scripts/retry.sh", root / "scripts/retry.sh")
             runner = root / "runner"
             runner.mkdir()
             tools = root / "tools"

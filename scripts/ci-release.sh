@@ -85,27 +85,14 @@ with open(sys.argv[1]) as result:
         sys.exit('Notarization was not Accepted; no release artifacts will be produced.')
 PY
 }
-# The ticket server can drop the runner's connection briefly; retry, then fail with the original status.
-retry() {
-    local attempt=1 status=0
-    while true; do
-        status=0
-        "$@" || status=$?
-        [[ $status -eq 0 ]] && return 0
-        [[ $attempt -ge 3 ]] && return "$status"
-        echo "Command failed with status $status (attempt $attempt of 3); retrying: $*" >&2
-        sleep $((attempt * ${VAKEN_RETRY_DELAY:-5}))
-        attempt=$((attempt + 1))
-    done
-}
 notarize "$PRIVATE_DIR/notarization.zip" "$PRIVATE_DIR/notarization.json"
-retry xcrun stapler staple "$VAKEN_APP_PATH"
-retry xcrun stapler validate "$VAKEN_APP_PATH"
+scripts/retry.sh xcrun stapler staple "$VAKEN_APP_PATH"
+scripts/retry.sh xcrun stapler validate "$VAKEN_APP_PATH"
 spctl --assess --type execute --verbose=2 "$VAKEN_APP_PATH"
 bash scripts/make-dmg.sh "$VAKEN_APP_PATH" build/Vaken.dmg
 notarize build/Vaken.dmg "$PRIVATE_DIR/dmg-notarization.json"
-retry xcrun stapler staple build/Vaken.dmg
-retry xcrun stapler validate build/Vaken.dmg
+scripts/retry.sh xcrun stapler staple build/Vaken.dmg
+scripts/retry.sh xcrun stapler validate build/Vaken.dmg
 codesign --verify --strict build/Vaken.dmg
 rm -f "$PRIVATE_DIR/notary.p8"
 unset APPLE_NOTARY_KEY_ID APPLE_NOTARY_ISSUER_ID

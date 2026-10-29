@@ -29,7 +29,7 @@ PY
 codesign --verify --deep --strict "$APP"
 "$APP/Contents/MacOS/vaken" --validate-updates "$APP/Contents/Info.plist"
 # Public distribution requires a notarized, stapled app before archiving.
-xcrun stapler validate "$APP"
+scripts/retry.sh xcrun stapler validate "$APP"
 TOOLS=$(sh scripts/sparkle-tools.sh)
 mkdir -p "$OUTPUT"
 ARCHIVE="$OUTPUT/Vaken.zip"
