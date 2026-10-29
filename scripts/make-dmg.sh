@@ -19,7 +19,7 @@ if output.is_relative_to(app):
     raise SystemExit('Disk-image output must not be inside the app bundle.')
 PY
 codesign --verify --deep --strict "$APP"
-xcrun stapler validate "$APP"
+"$(dirname "$0")/retry.sh" xcrun stapler validate "$APP"
 mkdir -p "$(dirname "$OUTPUT")"
 STAGING=$(mktemp -d "$(dirname "$OUTPUT")/.vaken-dmg-XXXXXX")
 cleanup() {
