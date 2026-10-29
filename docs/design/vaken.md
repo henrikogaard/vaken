@@ -10,7 +10,7 @@ Vaken keeps a Mac available for remote access and long-running work by controlli
 
 The system targets macOS 13 or later. It does not unlock the screen, simulate activity, change thermal protections or implement a general automation engine. An optional display assertion is session-scoped. Network availability and protection from every OS or hardware failure are outside its guarantees.
 
-The current distribution is version 0.3.1. The code is MIT licensed. Public release hosting, signing-key provisioning and notarized old-to-new update validation are separate deployment gates, not consequences of a successful local build.
+The current distribution is version 0.3.2. The code is MIT licensed. Public release hosting, signing-key provisioning and notarized old-to-new update validation are separate deployment gates, not consequences of a successful local build.
 
 ## 2. Requirements
 
