@@ -14,7 +14,7 @@ final class AppModelTests: XCTestCase {
         func cancel() {}
     }
     final class Service: SleepServicing {
-        var awake = false, failRestore = false, holdBegin = false
+        var awake = false, failRestore = false, holdBegin = false, unreachable = false
         var config: SessionConfiguration?
         var begins = 0, restores = 0, updates = 0
         var protocolVersion = 2, policyWrites = 0
@@ -24,7 +24,8 @@ final class AppModelTests: XCTestCase {
         var pending: ((ServiceReply) -> Void)?
         var state: ServiceReply { .init(awake: awake, sessionID: awake ? "session" : nil, configuration: config,
                                        protocolVersion: protocolVersion, authenticationRequired: authRequired, policyRevision: revision) }
-        func status(_ reply: @escaping (ServiceReply) -> Void) { reply(state) }
+        func status(_ reply: @escaping (ServiceReply) -> Void) { reply(unreachable ? Self.noReply : state) }
+        static let noReply = ServiceReply(ok: false, message: "The helper did not respond. Check setup in Settings.")
         func begin(_ configuration: SessionConfiguration, policyRevision: Int64?, reply: @escaping (ServiceReply) -> Void) {
             lastBeginRevision = policyRevision
             if let policyRevision, policyRevision != revision {
@@ -37,7 +38,7 @@ final class AppModelTests: XCTestCase {
         func update(_ id: String, configuration: SessionConfiguration, reply: @escaping (ServiceReply) -> Void) {
             updates += 1; config = configuration; reply(state)
         }
-        func heartbeat(_ id: String, reply: @escaping (ServiceReply) -> Void) { reply(state) }
+        func heartbeat(_ id: String, reply: @escaping (ServiceReply) -> Void) { reply(unreachable ? Self.noReply : state) }
         func restore(_ reply: @escaping (ServiceReply) -> Void) {
             restores += 1
             if failRestore { reply(.init(ok: false, awake: true, message: "restore failed")) }
@@ -58,6 +59,21 @@ final class AppModelTests: XCTestCase {
         model.ready = true; model.flag = false; model.power = .init(isAC: true, batteryPercent: 100)
         model.helperProtocolVersion = service.protocolVersion
         return model
+    }
+    func testHelperErrorClearsOnceHelperRepliesAgain() {
+        let s = Service(), a = Auth(), m = model(s, a)
+        m.ready = true; m.flag = false
+        s.unreachable = true; m.checkSetup()
+        XCTAssertEqual(m.error, Service.noReply.message); XCTAssertFalse(m.ready)
+        s.unreachable = false; m.checkSetup()
+        XCTAssertNil(m.error); XCTAssertTrue(m.ready)
+    }
+    func testSuccessfulPollKeepsUnrelatedError() {
+        let s = Service(), a = Auth(), m = model(s, a)
+        m.ready = true; m.flag = false
+        m.startMinutes(0); let message = m.error
+        m.checkSetup()
+        XCTAssertNotNil(message); XCTAssertEqual(m.error, message)
     }
     func testCancelDoesNotEnableOrArmTimer() {
         let s = Service(), a = Auth(); a.result = .cancelled

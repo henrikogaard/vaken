@@ -31,6 +31,8 @@ final class AppModel: ObservableObject {
     private var configuration: SessionConfiguration?
     private var lastPower: Bool?
     private var poll: Timer?
+    /// The error a failed status poll showed; the next successful poll clears it.
+    private var pollError: String?
     private var clockTimer: Timer?
     private var polling = false
     private var generation = 0
@@ -148,6 +150,11 @@ final class AppModel: ObservableObject {
             guard self.generation == observationGeneration, self.busy == nil else { return }
             let hadSession = self.sessionID != nil
             self.accept(response)
+            if !response.ok { self.pollError = self.error }
+            else if let stale = self.pollError {
+                if self.error == stale { self.error = nil }
+                self.pollError = nil
+            }
             if hadSession && response.ok && response.sessionID == nil {
                 self.paused = true
                 if !self.quitRequested { self.forgetSession() }
