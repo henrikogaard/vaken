@@ -22,7 +22,8 @@ final class AppModelTests: XCTestCase {
         var revision: Int64 = 0
         var lastBeginRevision: Int64?
         var pending: ((ServiceReply) -> Void)?
-        var state: ServiceReply { .init(awake: awake, sessionID: awake ? "session" : nil, configuration: config,
+        var endMessage: String?
+        var state: ServiceReply { .init(awake: awake, sessionID: awake ? "session" : nil, configuration: config, message: endMessage,
                                        protocolVersion: protocolVersion, authenticationRequired: authRequired, policyRevision: revision) }
         func status(_ reply: @escaping (ServiceReply) -> Void) { reply(unreachable ? Self.noReply : state) }
         static let noReply = ServiceReply(ok: false, message: "The helper did not respond. Check setup in Settings.")
@@ -173,6 +174,32 @@ final class AppModelTests: XCTestCase {
         m.checkSetup()
         XCTAssertTrue(m.paused); XCTAssertNil(m.deadline)
         XCTAssertEqual(a.calls, 1); XCTAssertEqual(s.begins, 1)
+    }
+    func testHelperEndedSessionShowsReason() {
+        let s = Service(), a = Auth(); let m = model(s, a)
+        m.setAwake(true)
+        s.awake = false; s.config = nil; s.endMessage = "Vaken stopped responding"
+        m.checkSetup()
+        XCTAssertEqual(m.error, "Keep awake ended: Vaken stopped responding.")
+        m.checkSetup()
+        XCTAssertEqual(m.error, "Keep awake ended: Vaken stopped responding.")
+    }
+    func testExpectedSessionEndIsNotAnError() {
+        for reason in ["Timer ended", "Tracked process exited"] {
+            let s = Service(), a = Auth(); let m = model(s, a)
+            m.setAwake(true)
+            s.awake = false; s.config = nil; s.endMessage = reason
+            m.checkSetup()
+            XCTAssertNil(m.error, reason)
+        }
+    }
+    func testSessionKeepsAppOutOfAppNap() {
+        let s = Service(), a = Auth(); let m = model(s, a)
+        XCTAssertFalse(m.preventsAppNap)
+        m.setAwake(true); XCTAssertTrue(m.preventsAppNap)
+        m.setAwake(false); XCTAssertFalse(m.preventsAppNap)
+        m.setAwake(true); s.awake = false; s.config = nil; m.checkSetup()
+        XCTAssertFalse(m.preventsAppNap)
     }
     func testDisplayChoiceUpdatesExistingAuthorizedSession() {
         let s = Service(), a = Auth(); let m = model(s, a)

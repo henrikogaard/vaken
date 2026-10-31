@@ -27,7 +27,10 @@ final class AppModel: ObservableObject {
     private let authentication: UserAuthenticating
     private let preview: Bool
     private let isolated: Bool
-    private var sessionID: String?
+    private var sessionID: String? { didSet { updateAppNapExemption() } }
+    /// App Nap can delay the heartbeat past the helper's 30-second lease, which ends the session.
+    private var appNapExemption: NSObjectProtocol?
+    var preventsAppNap: Bool { appNapExemption != nil }
     private var configuration: SessionConfiguration?
     private var lastPower: Bool?
     private var poll: Timer?
@@ -157,6 +160,9 @@ final class AppModel: ObservableObject {
             }
             if hadSession && response.ok && response.sessionID == nil {
                 self.paused = true
+                if let reason = response.message, !SessionLease.expectedEndReasons.contains(reason) {
+                    self.error = "Keep awake ended: \(reason)."
+                }
                 if !self.quitRequested { self.forgetSession() }
             }
             self.changed()
@@ -165,6 +171,15 @@ final class AppModel: ObservableObject {
         }
         if let id = sessionID { service.heartbeat(id, reply: callback) }
         else { service.status(callback) }
+    }
+    private func updateAppNapExemption() {
+        guard !preview else { return }
+        if sessionID != nil, appNapExemption == nil {
+            appNapExemption = ProcessInfo.processInfo.beginActivity(
+                options: .userInitiatedAllowingIdleSystemSleep, reason: "Keep awake session heartbeat")
+        } else if sessionID == nil, let activity = appNapExemption {
+            ProcessInfo.processInfo.endActivity(activity); appNapExemption = nil
+        }
     }
     private func accept(_ response: ServiceReply) {
         helperProtocolVersion = response.protocolVersion
