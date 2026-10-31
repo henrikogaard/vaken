@@ -64,6 +64,8 @@ public struct SessionLease {
         guard self.owner == owner && self.id == id else { return false }
         heartbeat = uptime; return true
     }
+    /// End reasons the user asked for, as opposed to a safety stop or a failure.
+    public static let expectedEndReasons: Set<String> = ["Timer ended", "Tracked process exited"]
     public func endReason(now: Date, uptime: TimeInterval, power: PowerState, lpm: Bool,
                           processRunning: Bool, consoleUID: UInt32?) -> String? {
         if uptime - heartbeat >= 30 { return "Vaken stopped responding" }

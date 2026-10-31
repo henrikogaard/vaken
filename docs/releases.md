@@ -51,7 +51,7 @@ Exporting a signing certificate, generating an update key, configuring GitHub se
 
 The intended feed is `https://github.com/henrikogaard/vaken/releases/latest/download/appcast.xml`. That endpoint is not assumed to exist. Immutable archive downloads should use the corresponding tagged release path, never a mutable latest-version archive URL.
 
-`CFBundleShortVersionString` and the default `CFBundleVersion` are controlled by `AppInfo.swift`; they currently report 0.3.2 and 5. Sparkle compares the numeric build identifier, not just the displayed marketing version. Never reuse a published build identifier for different binaries. This integration does not increment either field on its own.
+`CFBundleShortVersionString` and the default `CFBundleVersion` are controlled by `AppInfo.swift`; they currently report 0.3.3 and 6. Sparkle compares the numeric build identifier, not just the displayed marketing version. Never reuse a published build identifier for different binaries. This integration does not increment either field on its own.
 
 ## One-time activation
 
