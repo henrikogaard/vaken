@@ -2,8 +2,8 @@ import Foundation
 
 enum AppInfo {
     /// The single editable release version. Packaging reads this via --version.
-    static let releaseVersion = "0.3.3"
-    static let releaseBuild = "6"
+    static let releaseVersion = "0.3.4"
+    static let releaseBuild = "7"
     static let author = "Henrik Øgård"
     static let github = URL(string: "https://github.com/henrikogaard")!
     static let support = URL(string: "https://buymeacoffee.com/henrikogaard")!
