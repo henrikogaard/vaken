@@ -56,6 +56,9 @@ public struct SessionLease {
     public let uid: UInt32
     public var configuration: SessionConfiguration
     public private(set) var heartbeat: TimeInterval
+    /// Periodic checks in a row that could not read the power state or console user.
+    public private(set) var unknownStateChecks = 0
+    public static let unknownStateLimit = 3
     public init(owner: String, uid: UInt32, configuration: SessionConfiguration, uptime: TimeInterval) {
         id = UUID().uuidString; self.owner = owner; self.uid = uid
         self.configuration = configuration; heartbeat = uptime
@@ -66,6 +69,20 @@ public struct SessionLease {
     }
     /// End reasons the user asked for, as opposed to a safety stop or a failure.
     public static let expectedEndReasons: Set<String> = ["Timer ended", "Tracked process exited"]
+    /// `endReason` for the periodic check: one failed read is not evidence of a change, so unknown
+    /// state ends the session only when it persists. Anything definite still ends it at once.
+    public mutating func check(now: Date, uptime: TimeInterval, power: PowerState, lpm: Bool,
+                               processRunning: Bool, consoleUID: UInt32?) -> String? {
+        let known = power.isAC == nil ? PowerState(isAC: true, batteryPercent: nil) : power
+        if let reason = endReason(now: now, uptime: uptime, power: known, lpm: lpm,
+                                  processRunning: processRunning, consoleUID: consoleUID ?? uid) { return reason }
+        guard consoleUID == nil || (configuration.mode != .manual && power.isAC == nil) else {
+            unknownStateChecks = 0; return nil
+        }
+        unknownStateChecks += 1
+        guard unknownStateChecks >= Self.unknownStateLimit else { return nil }
+        return endReason(now: now, uptime: uptime, power: power, lpm: lpm, processRunning: processRunning, consoleUID: consoleUID)
+    }
     public func endReason(now: Date, uptime: TimeInterval, power: PowerState, lpm: Bool,
                           processRunning: Bool, consoleUID: UInt32?) -> String? {
         if uptime - heartbeat >= 30 { return "Vaken stopped responding" }
@@ -93,5 +110,36 @@ public struct KeyboardShortcut: Codable, Equatable {
     public var label: String
     public init(keyCode: UInt32, modifiers: UInt32, label: String) {
         self.keyCode = keyCode; self.modifiers = modifiers; self.label = label
+    }
+}
+
+/// A small record of session starts and ends, kept because the unified log rotates away quickly.
+/// It holds times and fixed reasons only. A failed write never affects the session.
+public struct SessionLog {
+    public static let defaultURL = URL(fileURLWithPath: "/var/log/vaken-sessions.log")
+    private let url: URL
+    private let maxBytes: Int
+    public init(url: URL = SessionLog.defaultURL, maxBytes: Int = 64 * 1024) {
+        self.url = url; self.maxBytes = maxBytes
+    }
+    public func record(_ event: String, now: Date = Date()) {
+        let formatter = ISO8601DateFormatter()
+        formatter.timeZone = .current
+        let line = Data("\(formatter.string(from: now)) \(event)\n".utf8)
+        var fd = open()
+        var status = stat()
+        if fd >= 0, fstat(fd, &status) == 0, Int(status.st_size) + line.count > maxBytes, status.st_size > 0 {
+            close(fd)
+            rename(url.path, url.path + ".1")
+            fd = open()
+        }
+        guard fd >= 0 else { return }
+        defer { close(fd) }
+        _ = line.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) }
+    }
+    private func open() -> Int32 {
+        let fd = Foundation.open(url.path, O_WRONLY | O_APPEND | O_CREAT | O_NOFOLLOW, 0o644)
+        if fd >= 0 { fchmod(fd, 0o644) }
+        return fd
     }
 }

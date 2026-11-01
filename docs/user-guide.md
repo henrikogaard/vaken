@@ -52,6 +52,7 @@ Automatic installation is disabled. Let pending actions finish before installing
 | Helper setup required | Check the app location, click Set up and approve Vaken in Login Items & Extensions |
 | Helper update needed | End the session, then update; retry Set up if registration failed |
 | Enable cancelled | Try again manually; Follow remains paused to avoid repeated prompts |
+| Keep awake ended by itself | The menu says why. `/var/log/vaken-sessions.log` keeps the time and reason of each start and end |
 | Sleep restoration failed | Keep Vaken open, read the error and use the manual recovery command below if needed |
 | Update network/signature error | Retry later or obtain a trusted release manually; never disable signature checks |
 | Remote connection dropped | Check power, networking, thermal conditions and actual system sleep state; Vaken cannot guarantee connectivity |

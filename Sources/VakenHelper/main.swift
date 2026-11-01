@@ -31,6 +31,7 @@ private final class Runner: CommandRunning {
 private final class Helper: NSObject, NSXPCListenerDelegate {
     let queue = DispatchQueue(label: "no.ogard.vaken.helper.state")
     private let runner = Runner()
+    private let log = SessionLog()
     private var lease: SessionLease?
     private var displayAssertion: IOPMAssertionID = 0
     private var ownsFlag = false
@@ -42,6 +43,7 @@ private final class Helper: NSObject, NSXPCListenerDelegate {
 
     func start() {
         queue.async {
+            self.log.record("Helper started, protocol \(ServiceIdentity.protocolVersion)")
             self.ownsFlag = FileManager.default.fileExists(atPath: self.marker.path)
             if self.ownsFlag { _ = self.restoreOwned(reason: "Recovered interrupted session") }
         }
@@ -137,6 +139,7 @@ private final class Helper: NSObject, NSXPCListenerDelegate {
                         reply(state(ok: false, message: "Enable could not be verified.")); return
                     }
                     self.lease = candidate
+                    self.log.record("Keep awake started, mode \(config.mode.rawValue), \(config.deadline == nil ? "no timer" : "timer")")
                 } else { self.lease?.configuration = config }
                 self.lastMessage = nil
                 guard self.setDisplay(config.displayAwake) else {
@@ -159,6 +162,7 @@ private final class Helper: NSObject, NSXPCListenerDelegate {
             lastMessage = "Normal sleep could not be restored; retrying."
             return false
         }
+        log.record("Keep awake ended: \(reason)")
         lease = nil; ownsFlag = false; restoring = false; lastMessage = reason
         // Only our fixed, root-owned recovery marker is removed.
         if FileManager.default.fileExists(atPath: marker.path) { try? FileManager.default.removeItem(at: marker) }
@@ -167,17 +171,21 @@ private final class Helper: NSObject, NSXPCListenerDelegate {
 
     private func tick() {
         if restoring { _ = restoreOwned(reason: "Normal sleep restored", explicit: true); return }
-        guard let lease else {
+        guard var lease else {
             if ownsFlag { _ = restoreOwned(reason: "Recovered interrupted session") }
             return
         }
         let gate = SleepGate(runner: runner), system = gate.readSystem()
         if system.flag == false { _ = restoreOwned(reason: "Sleep restored outside Vaken"); return }
-        if let reason = lease.endReason(now: Date(), uptime: ProcessInfo.processInfo.systemUptime,
-            power: gate.readPower(), lpm: parseLowPowerMode(system.output),
-            processRunning: lease.configuration.process?.isRunning ?? true, consoleUID: consoleUID()) {
-            _ = restoreOwned(reason: reason)
+        let uptime = ProcessInfo.processInfo.systemUptime, power = gate.readPower(), console = consoleUID()
+        let reason = lease.check(now: Date(), uptime: uptime, power: power, lpm: parseLowPowerMode(system.output),
+            processRunning: lease.configuration.process?.isRunning ?? true, consoleUID: console)
+        self.lease = lease
+        if reason != nil || lease.unknownStateChecks > 0 {
+            log.record("Check: heartbeat \(Int(uptime - lease.heartbeat))s ago, AC \(power.isAC.map(String.init) ?? "unknown"), "
+                + "user \(console.map(String.init) ?? "unknown"), bad checks \(lease.unknownStateChecks)")
         }
+        if let reason { _ = restoreOwned(reason: reason) }
     }
 
     @discardableResult private func setDisplay(_ enabled: Bool) -> Bool {
