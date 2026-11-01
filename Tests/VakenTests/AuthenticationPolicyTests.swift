@@ -54,7 +54,8 @@ final class AuthenticationPolicyTests: XCTestCase {
             #"{"ok":true,"awake":false}"#,
             #"{"ok":true,"protocolVersion":2,"authenticationRequired":false}"#,
             #"{"ok":true,"protocolVersion":1,"authenticationRequired":false,"policyRevision":1}"#,
-            #"{"ok":true,"protocolVersion":3,"authenticationRequired":false,"policyRevision":1}"#,
+            #"{"ok":true,"protocolVersion":2,"authenticationRequired":false,"policyRevision":1}"#,
+            #"{"ok":true,"protocolVersion":99,"authenticationRequired":false,"policyRevision":1}"#,
         ] {
             let reply = try JSONDecoder().decode(ServiceReply.self, from: Data(json.utf8))
             XCTAssertTrue(reply.authenticationRequired); XCTAssertEqual(reply.protocolVersion, 1)

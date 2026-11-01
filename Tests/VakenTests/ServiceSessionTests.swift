@@ -58,4 +58,71 @@ final class ServiceSessionTests: XCTestCase {
         XCTAssertEqual(SecStaticCodeCreateWithPath(URL(fileURLWithPath: "/usr/bin/true") as CFURL, [], &code), errSecSuccess)
         XCTAssertNotEqual(SecStaticCodeCheckValidity(try XCTUnwrap(code), [], try XCTUnwrap(requirement)), errSecSuccess)
     }
+
+    private func lease(mode: Mode, deadline: Date? = nil) -> SessionLease {
+        SessionLease(owner: "a", uid: 501, configuration: SessionConfiguration(deadline: deadline, mode: mode), uptime: 0)
+    }
+    func testOneBadPowerReadingDoesNotEndSession() {
+        var l = lease(mode: .manualPlusSafetyNet)
+        let good = PowerState(isAC: true, batteryPercent: 100), bad = PowerState(isAC: nil, batteryPercent: nil)
+        func check(_ power: PowerState) -> String? {
+            l.check(now: Date(), uptime: 1, power: power, lpm: false, processRunning: true, consoleUID: 501)
+        }
+        XCTAssertNil(check(bad)); XCTAssertNil(check(bad)); XCTAssertEqual(l.unknownStateChecks, 2)
+        XCTAssertNil(check(good)); XCTAssertEqual(l.unknownStateChecks, 0)
+        XCTAssertNil(check(bad)); XCTAssertNil(check(bad))
+        XCTAssertEqual(check(bad), "Power disconnected or unavailable")
+    }
+    func testOneBadConsoleReadingDoesNotEndSession() {
+        var l = lease(mode: .manual)
+        let power = PowerState(isAC: true, batteryPercent: 100)
+        func check(_ uid: UInt32?) -> String? {
+            l.check(now: Date(), uptime: 1, power: power, lpm: false, processRunning: true, consoleUID: uid)
+        }
+        XCTAssertNil(check(nil)); XCTAssertNil(check(nil)); XCTAssertNil(check(501))
+        XCTAssertEqual(check(502), "User session changed")
+        XCTAssertNil(check(nil)); XCTAssertNil(check(nil))
+        XCTAssertEqual(check(nil), "User session changed")
+    }
+    func testDefiniteEndsAreNotDelayedByBadReadings() {
+        let bad = PowerState(isAC: nil, batteryPercent: nil), now = Date()
+        var unplugged = lease(mode: .manualPlusSafetyNet)
+        XCTAssertEqual(unplugged.check(now: now, uptime: 1, power: .init(isAC: false, batteryPercent: 90), lpm: false, processRunning: true, consoleUID: 501),
+                       "Power disconnected or unavailable")
+        var silent = lease(mode: .manualPlusSafetyNet)
+        XCTAssertEqual(silent.check(now: now, uptime: 40, power: bad, lpm: false, processRunning: true, consoleUID: nil), "Vaken stopped responding")
+        var timed = lease(mode: .manualPlusSafetyNet, deadline: now.addingTimeInterval(-1))
+        XCTAssertEqual(timed.check(now: now, uptime: 1, power: bad, lpm: false, processRunning: true, consoleUID: nil), "Timer ended")
+    }
+    func testManualModeIgnoresUnknownPower() {
+        var l = lease(mode: .manual)
+        for _ in 0..<5 {
+            XCTAssertNil(l.check(now: Date(), uptime: 1, power: .init(isAC: nil, batteryPercent: nil), lpm: false, processRunning: true, consoleUID: 501))
+        }
+    }
+    func testSessionLogAppendsAndRotates() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appendingPathComponent("sessions.log")
+        let log = SessionLog(url: url, maxBytes: 100)
+        log.record("first"); log.record("second")
+        var text = try String(contentsOf: url, encoding: .utf8)
+        XCTAssertTrue(text.contains("first\n")); XCTAssertTrue(text.contains("second\n"))
+        log.record(String(repeating: "x", count: 60))
+        text = try String(contentsOf: url, encoding: .utf8)
+        XCTAssertTrue(text.contains("xxx")); XCTAssertFalse(text.contains("first"))
+        XCTAssertTrue(try String(contentsOf: url.appendingPathExtension("1"), encoding: .utf8).contains("first"))
+        XCTAssertEqual(try FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions] as? Int, 0o644)
+    }
+    func testSessionLogDoesNotFollowSymlink() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let target = folder.appendingPathComponent("target"), url = folder.appendingPathComponent("sessions.log")
+        try "keep".write(to: target, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(at: url, withDestinationURL: target)
+        SessionLog(url: url).record("event")
+        XCTAssertEqual(try String(contentsOf: target, encoding: .utf8), "keep")
+    }
 }

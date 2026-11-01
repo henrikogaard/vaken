@@ -5,7 +5,7 @@ public enum ServiceIdentity {
     public static let name = "no.ogard.vaken.helper"
     public static let plist = "no.ogard.vaken.helper.plist"
     public static let team = "45AD7E7G5G"
-    public static let protocolVersion = 2
+    public static let protocolVersion = 3
     public static func requirement(identifier: String) -> String {
         "anchor apple generic and certificate leaf[subject.OU] = \"\(team)\" and identifier \"\(identifier)\" and !(entitlement[\"com.apple.security.get-task-allow\"] exists) and !(entitlement[\"com.apple.security.cs.disable-library-validation\"] exists)"
     }

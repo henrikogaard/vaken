@@ -253,7 +253,7 @@ struct VakenSettings: View {
                     .accessibilityLabel(update ? "Update Vaken helper" : "Set up Vaken helper")
                     .accessibilityIdentifier("settings-setup")
             }
-            Text(update ? "End the current session, then update the helper to enable the authentication choice." : (model.setupStatus.isEmpty ? "One-time system approval lets Vaken manage sleep and restore it silently." : model.setupStatus))
+            Text(update ? "End the current session, then update the helper." : (model.setupStatus.isEmpty ? "One-time system approval lets Vaken manage sleep and restore it silently." : model.setupStatus))
                 .font(.system(size: 11)).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }

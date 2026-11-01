@@ -12,7 +12,7 @@ The authentication requirement is helper-owned per user, defaults to On and is r
 
 ## Session recovery and limits
 
-The helper owns deadlines, process identity, battery policy and display assertions. A 30-second monotonic lease is renewed by the UI, and a five-second helper tick checks end conditions. Disconnection and failed heartbeats lead to restoration. An ownership marker enables reconciliation after helper restart. Resuming after a quit or restart is an app-side preference only: the helper still restores sleep whenever the app is gone, and a resumed session is a new session with the usual authentication. Privileged utility invocations are bounded by termination and kill timeouts.
+The helper owns deadlines, process identity, battery policy and display assertions. A 30-second monotonic lease is renewed by the UI, and a five-second helper tick checks end conditions. An unreadable power state or console user ends the session after three ticks in a row; a definite change ends it at once. Disconnection and failed heartbeats lead to restoration. An ownership marker enables reconciliation after helper restart. Resuming after a quit or restart is an app-side preference only: the helper still restores sleep whenever the app is gone, and a resumed session is a new session with the usual authentication. Privileged utility invocations are bounded by termination and kill timeouts.
 
 Every write is read back. Failed restoration stays visible and is retried. These mechanisms do not guarantee recovery after every OS, hardware, service-removal or filesystem failure. Thermal protections remain outside Vaken's control. A powered, awake computer must remain adequately ventilated.
 
@@ -33,6 +33,7 @@ Automatic installation is disabled. Active or pending sessions block update offe
 | App preferences | `~/Library/Application Support/no.ogard.vaken/settings.json` | User |
 | Authentication requirement | `/var/db/no.ogard.vaken/authentication.json` | Root helper, keyed by UID |
 | Recovery marker | `/var/db/no.ogard.vaken/owned` | Root helper |
+| Session log: times, fixed reasons, mode, power state, user ID | `/var/log/vaken-sessions.log` (world readable, capped at 64 KB plus one old copy) | Root helper |
 | Update preferences | App-domain macOS user defaults managed by Sparkle | User |
 | Update requests | Configured appcast and archive hosts | Sparkle |
 

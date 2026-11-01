@@ -219,13 +219,18 @@ final class AppModel: ObservableObject {
         }
     }
     private func evaluateFollow() {
-        guard busy == nil, !updateInProgress, ready, flag == false, !paused, settings.mode == .followPowerSource,
+        guard busy == nil, !updateInProgress, ready, !helperNeedsUpdate, flag == false, !paused, settings.mode == .followPowerSource,
               power.isAC == true, Date() >= retryAfter else { return }
         setAwake(true)
     }
     /// Starts the session that was on when Vaken last quit or the Mac restarted, once per launch.
     func resumeIfNeeded() {
         guard !resumeChecked, busy == nil, !updateInProgress, ready, power.isAC != nil else { return }
+        // A session on the old helper would block its update, so the resume waits for the update.
+        if helperNeedsUpdate {
+            if flag == false, settings.resumeSession != nil { error = "Update the helper in Settings to turn Keep awake back on." }
+            return
+        }
         resumeChecked = true
         guard flag == false, let resume = settings.resumeSession, settings.mode != .followPowerSource else { return }
         if let deadline = resume.deadline, deadline <= Date() { forgetSession(); return }

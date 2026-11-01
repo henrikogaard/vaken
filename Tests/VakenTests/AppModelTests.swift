@@ -17,7 +17,7 @@ final class AppModelTests: XCTestCase {
         var awake = false, failRestore = false, holdBegin = false, unreachable = false
         var config: SessionConfiguration?
         var begins = 0, restores = 0, updates = 0
-        var protocolVersion = 2, policyWrites = 0
+        var protocolVersion = ServiceIdentity.protocolVersion, policyWrites = 0
         var authRequired = true, failPolicyWrite = false
         var revision: Int64 = 0
         var lastBeginRevision: Int64?
@@ -130,6 +130,29 @@ final class AppModelTests: XCTestCase {
         m.resumeIfNeeded(); m.resumeIfNeeded()
         XCTAssertEqual(s.begins, 1); XCTAssertEqual(a.calls, 1)
         XCTAssertEqual(s.config?.deadline, deadline)
+    }
+    func testResumeWaitsForHelperUpdate() {
+        let s = Service(), a = Auth(); s.protocolVersion = 1; let m = model(s, a)
+        m.flag = false; m.power = .init(isAC: true, batteryPercent: 100)
+        m.settings.resumeSession = ResumeSession(deadline: nil)
+        m.checkSetup()
+        XCTAssertEqual(s.begins, 0); XCTAssertTrue(m.helperNeedsUpdate)
+        XCTAssertEqual(m.error, "Update the helper in Settings to turn Keep awake back on.")
+        XCTAssertEqual(m.settings.resumeSession, ResumeSession(deadline: nil))
+        s.protocolVersion = ServiceIdentity.protocolVersion; m.checkSetup()
+        XCTAssertEqual(s.begins, 1); XCTAssertTrue(s.awake)
+    }
+    func testFollowWaitsForHelperUpdate() {
+        let s = Service(), a = Auth(); s.protocolVersion = 1; let m = model(s, a)
+        m.flag = false; m.power = .init(isAC: true, batteryPercent: 100)
+        m.settings.mode = .followPowerSource
+        m.checkSetup()
+        XCTAssertEqual(s.begins, 0)
+    }
+    func testManualStartStillWorksOnOldHelper() {
+        let s = Service(), a = Auth(); s.protocolVersion = 1; let m = model(s, a)
+        m.checkSetup(); m.setAwake(true)
+        XCTAssertEqual(s.begins, 1); XCTAssertNil(s.lastBeginRevision); XCTAssertEqual(a.calls, 1)
     }
     func testLaunchDoesNotResumeExpiredOrCancelledSession() {
         let s = Service(), a = Auth(); let m = model(s, a)
